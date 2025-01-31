@@ -16,5 +16,13 @@
     },
     "models": {
         "embedding" : "text-embedding-3-small"
+    },
+    "supported":{
+        "model_providers": ["openai", "cohere"],
+        "models": {
+            "openai": ["gpt-4o", "gpt-4o-mini"],
+            "cohere": ["command-r-plus", "command-r"]
+        },
+        "tools": ["web-search"]
     }
 }
