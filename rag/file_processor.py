@@ -27,7 +27,7 @@ def sentence_chunker(text, chunk_size=3, overlap=1):
         i += (chunk_size - overlap)
     
     result = list(filter(None, chunks))
-    log.info(f"Created {len(result)} sentence chunks")
+    log.success(f"Created {len(result)} sentence chunks")
     return result
 
 def character_chunker(text, chunk_size=500, overlap=100):
@@ -45,6 +45,6 @@ def character_chunker(text, chunk_size=500, overlap=100):
         end += (chunk_size - overlap)
     
     result = list(chunks)
-    log.info(f"Created {len(result)} character chunks")
+    log.success(f"Created {len(result)} character chunks")
     return result
 
