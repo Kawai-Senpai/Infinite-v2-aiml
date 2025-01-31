@@ -1,0 +1,3 @@
+python-dotenv==1.0.0
+ultraconfiguration==1.1.0
+chromadb-client==0.6.3

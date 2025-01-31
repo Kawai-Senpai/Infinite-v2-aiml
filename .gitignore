@@ -1,0 +1,8 @@
+#! Ignore
+test.py
+debug/*
+.env.development
+.env.production
+
+#! Don't ignore
+!debug

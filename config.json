@@ -1,0 +1,16 @@
+{
+    "logging": {
+        "development_level": "DEBUG",
+        "production_level": "INFO",
+        "include_extra_info": false,
+        "write_to_file": false
+    },
+    "mongo": {
+        "structure": {
+        }
+    },
+    "chroma": {
+        "structure": [
+        ]
+    }
+}
