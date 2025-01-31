@@ -7,10 +7,14 @@
     },
     "mongo": {
         "structure": {
+            "ai": ["agents", "files"]
         }
     },
     "chroma": {
         "structure": [
         ]
+    },
+    "models": {
+        "embedding" : "text-embedding-3-small"
     }
 }
