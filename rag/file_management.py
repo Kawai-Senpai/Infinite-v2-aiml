@@ -7,6 +7,7 @@ from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 import hashlib
+from rag.file_handler import get_file_content
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -16,10 +17,23 @@ log = logger('file_management_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence", collection_index=0):
-    """Chunk text and store vector embeddings, no PDF loading."""
-    log.info(f"Adding file '{file_name}' for agent {agent_id}")
+def add_file(agent_id, file_type, details, chunk_size=3, overlap=1, chunk_type="sentence", collection_index=0):
+    """Add file from various sources and store vector embeddings."""
+    log.info(f"Adding {file_type} file for agent {agent_id}")
     
+    # Validate file type
+    if file_type not in config.get("supported.file_types", []):
+        raise ValueError(f"Unsupported file type: {file_type}")
+    
+    # Validate details based on file type
+    if file_type in ["pdf", "docx", "excel"]:
+        required_fields = ["s3_key", "s3_bucket"]
+    else:  # webpage
+        required_fields = ["url"]
+        
+    if not all(field in details for field in required_fields):
+        raise ValueError(f"Missing required fields for {file_type}: {required_fields}")
+
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     if not agent:
@@ -33,6 +47,9 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
     if collection_index >= len(agent["chroma_collections"]):
         log.error(f"Collection index {collection_index} out of range")
         raise ValueError("Collection index out of range")
+
+    # Get file content
+    text = get_file_content(file_type, details)
 
     # Chunk the text
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")
@@ -50,7 +67,7 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
         insert_documents(
             collection_name=agent["chroma_collections"][collection_index],
             documents=[chunk],
-            metadatas=[{"file_name": file_name}],
+            metadatas=[{"file_name": details.get("s3_key", details.get("url", "unknown"))}],
             ids=[chunk_id]
         )
         chunk_ids.append(chunk_id)
@@ -60,15 +77,16 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
     
     db.files.insert_one({
         "agent_id": ObjectId(agent_id),
-        "filename": file_name,
+        "file_type": file_type,
+        "details": details,
         "chunk_ids": chunk_ids,
         "file_hash": file_hash,
-        "collection_name": agent["chroma_collections"][collection_index],  # Store collection name
-        "collection_index": collection_index,  # Store collection index for reference
+        "collection_name": agent["chroma_collections"][collection_index],
+        "collection_index": collection_index,
         "uploaded_at": datetime.now(timezone.utc)
     })
     
-    log.success(f"Successfully added file '{file_name}' with {len(chunk_ids)} chunks to collection {collection_index}")
+    log.success(f"Successfully added {file_type} with {len(chunk_ids)} chunks")
     return len(chunk_ids)
 
 def delete_file(agent_id, file_id):

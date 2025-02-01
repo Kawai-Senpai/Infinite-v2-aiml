@@ -23,7 +23,8 @@
             "openai": ["gpt-4o", "gpt-4o-mini"],
             "cohere": ["command-r-plus", "command-r"]
         },
-        "tools": ["web-search"]
+        "tools": ["web-search"],
+        "file_types": ["pdf", "docx", "excel", "webpage"]
     },
     "constraints": {
         "max_num_collections": 4,
