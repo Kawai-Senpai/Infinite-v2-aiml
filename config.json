@@ -24,5 +24,9 @@
             "cohere": ["command-r-plus", "command-r"]
         },
         "tools": ["web-search"]
+    },
+    "constraints": {
+        "max_num_collections": 4,
+        "max_memory_size": 10
     }
 }

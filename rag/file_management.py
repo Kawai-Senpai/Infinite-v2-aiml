@@ -16,7 +16,7 @@ log = logger('file_management_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence"):
+def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence", collection_index=0):
     """Chunk text and store vector embeddings, no PDF loading."""
     log.info(f"Adding file '{file_name}' for agent {agent_id}")
     
@@ -25,6 +25,14 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
     if not agent:
         log.error(f"Agent {agent_id} not found")
         raise ValueError("Agent not found")
+
+    if not agent.get("chroma_collections"):
+        log.error(f"Agent {agent_id} has no collections")
+        raise ValueError("Agent has no collections")
+
+    if collection_index >= len(agent["chroma_collections"]):
+        log.error(f"Collection index {collection_index} out of range")
+        raise ValueError("Collection index out of range")
 
     # Chunk the text
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")
@@ -40,7 +48,7 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
         chunk_id = str(ObjectId())
         log.debug(f"Processing chunk {i+1}/{len(chunks)} with ID {chunk_id}")
         insert_documents(
-            collection_name=agent["chroma_collection"],
+            collection_name=agent["chroma_collections"][collection_index],
             documents=[chunk],
             metadatas=[{"file_name": file_name}],
             ids=[chunk_id]
@@ -55,10 +63,12 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
         "filename": file_name,
         "chunk_ids": chunk_ids,
         "file_hash": file_hash,
+        "collection_name": agent["chroma_collections"][collection_index],  # Store collection name
+        "collection_index": collection_index,  # Store collection index for reference
         "uploaded_at": datetime.now(timezone.utc)
     })
     
-    log.success(f"Successfully added file '{file_name}' with {len(chunk_ids)} chunks")
+    log.success(f"Successfully added file '{file_name}' with {len(chunk_ids)} chunks to collection {collection_index}")
     return len(chunk_ids)
 
 def delete_file(agent_id, file_id):
@@ -71,16 +81,15 @@ def delete_file(agent_id, file_id):
         log.error(f"File {file_id} not found")
         raise ValueError("File not found")
     
-    # Delete from Chroma
-    agent = db.find_one({"_id": ObjectId(agent_id)})
-    if not agent:
-        log.error(f"Agent {agent_id} not found")
-        raise ValueError("Agent not found")
-
-    log.debug(f"Deleting {len(file_data['chunk_ids'])} chunks from Chroma")
-    collection = chroma_client.get_collection(agent["chroma_collection"])
-    collection.delete(ids=file_data["chunk_ids"])
+    # Delete from Chroma using stored collection name
+    log.debug(f"Deleting {len(file_data['chunk_ids'])} chunks from collection {file_data['collection_name']}")
+    try:
+        collection = chroma_client.get_collection(file_data['collection_name'])
+        collection.delete(ids=file_data["chunk_ids"])
+    except Exception as e:
+        log.error(f"Error deleting from collection: {e}")
+        raise
     
     # Delete metadata
     db.delete_one({"_id": ObjectId(file_id)})
-    log.success(f"Successfully deleted file {file_id} and its chunks")
+    log.success(f"Successfully deleted file {file_id} and its chunks from collection {file_data['collection_index']}")

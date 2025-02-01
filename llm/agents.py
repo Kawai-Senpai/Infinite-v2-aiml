@@ -27,8 +27,10 @@ def create_agent(name,
                 model="gpt-4o",
                 max_history=20,
                 tools=[],
+                num_collections=1,
+                max_memory_size=1,
                 user_id=None):
-    """Create new agent with associated Chroma collection"""
+    """Create new agent with associated Chroma collections"""
 
     #model provider must be any of the following
     if model_provider not in config.get("supported.model_providers", ["openai"]):
@@ -43,9 +45,20 @@ def create_agent(name,
     if not all(tool in valid_tools for tool in tools):
         raise ValueError("Invalid tool")
 
-    collection_name = str(ObjectId())
-    # Create Chroma collection
-    chroma_client.create_collection(collection_name)
+    # Validate number of collections
+    if not 1 <= num_collections <= config.get("constraints.max_num_collections", 4):
+        raise ValueError("Number of collections must be between 1 and 4")
+
+    # Validate memory size
+    if not isinstance(max_memory_size, int) or not 1 <= max_memory_size <= config.get("constraints.max_memory_size", 10):
+        raise ValueError("max_memory_size must be an integer between 1 and 10")
+
+    # Create multiple Chroma collections
+    collection_names = []
+    for _ in range(num_collections):
+        collection_name = str(ObjectId())
+        chroma_client.create_collection(collection_name)
+        collection_names.append(collection_name)
     
     # Create MongoDB record
     db = mongo_client.ai.agents
@@ -58,8 +71,10 @@ def create_agent(name,
         "model": model,
         "max_history": max_history,
         "tools": tools,
-        "chroma_collection": collection_name,
+        "chroma_collections": collection_names,
         "files": [],
+        "memory": [], 
+        "max_memory_size": max_memory_size, 
         "created_at": datetime.now(),
         "system_agent": False
     }
@@ -83,8 +98,9 @@ def delete_agent(agent_id):
     if agent.get("system_agent", False):
         raise PermissionError("Cannot delete system agents")
     
-    # Delete Chroma collection
-    chroma_client.delete_collection(agent["chroma_collection"])
+    # Delete all Chroma collections
+    for collection_name in agent["chroma_collections"]:
+        chroma_client.delete_collection(collection_name)
     
     # Delete all associated files
     db.files.delete_many({"agent_id": ObjectId(agent_id)})
