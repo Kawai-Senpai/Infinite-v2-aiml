@@ -12,7 +12,8 @@
     },
     "chroma": {
         "structure": [
-        ]
+        ],
+        "threshold": 0.5
     },
     "models": {
         "embedding" : "text-embedding-3-small"

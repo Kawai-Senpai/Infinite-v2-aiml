@@ -3,9 +3,8 @@ from database.chroma import client as chroma_client
 from keys.keys import environment, openai_api_key
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
-from openai import OpenAI
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -14,9 +13,6 @@ log = logger('agents_log',
             include_extra_info=config.get("logging.include_extra_info", False), 
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
-
-# Initialize OpenAI client
-openai_client = OpenAI(api_key=openai_api_key)
 
 #! Agent functions ---------------------------------------------------------
 def create_agent(name,
@@ -75,7 +71,7 @@ def create_agent(name,
         "files": [],
         "memory": [], 
         "max_memory_size": max_memory_size, 
-        "created_at": datetime.now(),
+        "created_at": datetime.now(timezone.utc),
         "system_agent": False
     }
     

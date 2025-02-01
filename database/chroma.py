@@ -98,7 +98,7 @@ def insert_documents(collection_name, documents, metadatas=None, ids=None):
         log.error(f"Error inserting document(s) into {collection_name}: {str(e)}")
         return False, None
 
-def search_documents(collection_name, query, n_results=5, similarity_threshold=0.7):
+def search_documents(collection_name, query, n_results=5, similarity_threshold=config.get("chroma.threshold", 0.5)):
     """
     Search for similar documents in the specified collection
     Args:

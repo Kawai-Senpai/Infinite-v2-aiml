@@ -1,3 +1,10 @@
 python-dotenv==1.0.0
 ultraconfiguration==1.1.0
 chromadb-client==0.6.3
+boto3==1.34.106
+pydantic==2.10.4
+cachetools==5.3.1
+pandas==2.2.3
+dockx==0.2.4
+PyPDF2==3.0.1
+beautifulsoup4==4.12.3
