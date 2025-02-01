@@ -1,8 +1,10 @@
 #! Ignore
 test.py
 debug/*
+cache/*
 .env.development
 .env.production
 
 #! Don't ignore
 !debug
+!cache

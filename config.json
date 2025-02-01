@@ -28,5 +28,12 @@
     "constraints": {
         "max_num_collections": 4,
         "max_memory_size": 10
+    },
+    "caching": {
+        "dir": "cache"
+    },
+    "aws": {
+        "region": "us-east-1",
+        "bucket": "infinite-bucket"
     }
 }
