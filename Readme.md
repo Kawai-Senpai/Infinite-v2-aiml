@@ -53,7 +53,7 @@ An advanced conversational AI system with multi-model support, RAG capabilities,
 The project uses multiple environment files for different deployment scenarios:
 
 ### Environment Files
-- `.env` - Default environment file, used as fallback
+- `.env` - Controls which environment settings to use
 - `.env.development` - Development environment settings
 - `.env.production` - Production environment settings
 
