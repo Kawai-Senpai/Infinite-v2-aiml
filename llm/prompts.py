@@ -1,4 +1,3 @@
-
 def make_basic_prompt(name, role, capabilities, rules):
 
     capabilities_str = "\n".join(capabilities)
@@ -40,3 +39,59 @@ def format_context(context_results: list, memory: list) -> str:
                 context_str += f"- {match['document']}\n"
 
     return memory_str + context_str
+
+def make_tool_analysis_prompt(message: str, available_tools: list) -> str:
+    """Format prompt for tool analysis"""
+    tools_str = ", ".join(available_tools)
+    example = """Your output should look like this (example):
+{
+    "tools": [
+        {
+            "name": "web-search",
+            "query": "search query"
+        }
+    ]
+}"""
+    return f"""Analyze if this user message requires any tools. Available tools: {tools_str}
+
+Message: "{message}"
+
+{example}
+
+Rules:
+- If no tools are needed, return empty array. You can use multiple tools if needed.
+- Only use tools that are available to you. Do not use any other tools.
+- It is not necessary to use a tool for every message. Only use a tool if it is truly needed.
+- Your output should be in parsable proper JSON format like the given example.
+"""
+
+def make_memory_analysis_prompt(message: str) -> str:
+    """Format prompt for memory analysis"""
+
+    example = """Your output should look like this (example):
+{
+    "to_remember": [
+        "important information1",
+        "important information2"
+    ]
+}"""
+    return f"""Analyze if this message contains any important personal information about the user that should be remembered for future interactions.
+
+Message: "{message}"
+
+{example}
+
+Rules:
+- Only include information that is relevant for future interactions that are extremely important. Most messages will return rmpty array.
+- Mostly remember personal information that is important for future interactions, like names, preferences, etc.
+- Only remember information that is not ment to change every session. Like a name, or a preference, profession, etc.
+- Your output should be in parsable proper JSON format like the given example.
+"""
+
+def format_tool_response(tool_response: str) -> str:
+    """Format tool response for inclusion in context"""
+    return f"\n\nTool response: {tool_response}" if tool_response else ""
+
+def format_system_message(prompt: str, context: str, tool_response: str) -> str:
+    """Format the complete system message"""
+    return prompt + context + format_tool_response(tool_response)

@@ -8,9 +8,12 @@ from bson import ObjectId
 from openai import OpenAI
 import cohere
 from typing import Generator, Optional
-from llm.prompts import format_context, make_basic_prompt
+from llm.prompts import format_context, make_basic_prompt, format_system_message
 from database.chroma import search_documents
 from llm.sessions import update_session_history, get_recent_history
+from llm.tools import execute_tool, execute_tools  # Update import
+from concurrent.futures import ThreadPoolExecutor
+from decision import analyze_tool_need, analyze_for_memory
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -45,8 +48,8 @@ def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
             all_results.append(results)
     return all_results
 
-def update_memory(agent_id: str, new_item: str):
-    """Update agent's memory with new item, maintaining size limit"""
+def update_memory(agent_id: str, new_items: list):
+    """Update agent's memory with new items, maintaining size limit"""
 
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
@@ -54,7 +57,7 @@ def update_memory(agent_id: str, new_item: str):
         raise ValueError("Agent not found")
     
     memory = agent.get("memory", [])
-    memory.append(new_item)
+    memory.extend(new_items)  # Add all new items
     
     # Keep only the most recent items based on max_memory_size
     max_size = agent.get("max_memory_size", 10)
@@ -83,7 +86,7 @@ def format_history_for_cohere(history: list) -> list:
             preamble = msg["content"]
     return cohere_history, preamble
 
-#* Chat functions ------------------------------------------------------------
+#? Chat functions ------------------------------------------------------------
 def chat_with_openai(
         
     agent_id: str,
@@ -181,17 +184,35 @@ def chat(
     if not agent:
         raise ValueError("Agent not found")
 
+    # Parallel execution of tool analysis and memory analysis
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        tool_future = executor.submit(analyze_tool_need, message, agent["tools"])
+        memory_future = executor.submit(analyze_for_memory, message)
+        
+        tool_result = tool_future.result()
+        memory_result = memory_future.result()
+
+    # Handle tool execution if needed
+    tool_response = ""
+    if tool_result.get("tools"):
+        tool_response = execute_tools(tool_result["tools"])
+
+    # Handle memory storage if needed
+    if memory_result["to_remember"]:
+        update_memory(agent_id, memory_result["to_remember"])
+
     # Get relevant context if RAG is enabled
     context_results = get_relevant_context(agent_id, message, session_id) if use_rag else []
     memory_items = agent.get("memory", [])
+    
+    # Format all messages
     formatted_context = format_context(context_results, memory_items)
     prompt = make_basic_prompt(agent["name"], agent["role"], agent["capabilities"], agent["rules"])
-
-    # Get recent history
-    messages = get_recent_history(session_id, agent["max_history"])
+    system_message = format_system_message(prompt, formatted_context, tool_response)
     
-    # Add system message with context
-    messages = messages + [{"role": "system", "content": prompt + formatted_context}]
+    # Get recent history and add system message
+    messages = get_recent_history(session_id, agent["max_history"])
+    messages = messages + [{"role": "system", "content": system_message}]
     
     # Add current message
     messages.append({"role": "user", "content": message})
