@@ -15,7 +15,8 @@
         "threshold": 0.5
     },
     "models": {
-        "embedding" : "text-embedding-3-small"
+        "embedding" : "text-embedding-3-small",
+        "dicision": "o3-mini"
     },
     "supported":{
         "model_providers": ["openai", "cohere"],

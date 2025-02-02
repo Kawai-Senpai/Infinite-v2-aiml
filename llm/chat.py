@@ -1,17 +1,15 @@
 from database.mongo import client as mongo_client
-from database.chroma import client as chroma_client
 from keys.keys import environment, openai_api_key, cohere_api_key
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
-from datetime import datetime
 from bson import ObjectId
 from openai import OpenAI
 import cohere
-from typing import Generator, Optional
+from typing import Generator
 from llm.prompts import format_context, make_basic_prompt, format_system_message
 from database.chroma import search_documents
 from llm.sessions import update_session_history, get_recent_history
-from llm.tools import execute_tool, execute_tools  # Update import
+from llm.tools import execute_tools  # Update import
 from concurrent.futures import ThreadPoolExecutor
 from decision import analyze_tool_need, analyze_for_memory
 

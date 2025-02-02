@@ -1,3 +1,4 @@
+
 def execute_tools(tools_list: list) -> str:
     """Execute multiple tools and combine their responses"""
     if not tools_list:
