@@ -7,6 +7,7 @@ from utilities.s3_loader import download_from_s3, cleanup_cache
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
 from keys.keys import environment
+from utilities.scraping import scrape_page
 
 config = UltraConfig('config.json')
 log = logger('file_handler_log', 
@@ -60,16 +61,7 @@ def extract_from_excel(s3_key, bucket_name):
 def extract_from_webpage(url):
     """Extract text from webpage"""
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
-            
-        text = soup.get_text(separator='\n')
-        return text.strip()
+        return scrape_page(url)
     except Exception as e:
         log.error(f"Error extracting webpage text: {str(e)}")
         raise
