@@ -29,7 +29,8 @@
     },
     "constraints": {
         "max_num_collections": 4,
-        "max_memory_size": 10
+        "max_memory_size": 10,
+        "max_search_results": 2
     },
     "caching": {
         "dir": "cache"
