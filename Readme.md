@@ -48,6 +48,22 @@ An advanced conversational AI system with multi-model support, RAG capabilities,
         scraping.py
 ```
 
+## Environment Configuration
+
+The project uses multiple environment files for different deployment scenarios:
+
+### Environment Files
+- `.env` - Default environment file, used as fallback
+- `.env.development` - Development environment settings
+- `.env.production` - Production environment settings
+
+### Why Multiple Environment Files?
+
+1. **Security**: Separate credentials for development and production
+2. **Configuration Management**: Different settings for local development vs production deployment
+3. **Debug Settings**: Development environment can have verbose logging and smaller limits
+4. **Testing**: Allows testing with different configurations without modifying production settings
+
 ## Core Features
 
 ### Multi-Model Support
