@@ -2,6 +2,52 @@
 
 An advanced conversational AI system with multi-model support, RAG capabilities, dynamic tool usage, and persistent memory.
 
+## Project Structure
+
+```
+│   .env
+│   .env.development
+│   .env.production
+│   .gitignore
+│   .gitmessage
+│   config.json
+│   Readme.md
+│   requirements.txt
+│
+├───cache
+│       Readme.md
+│
+├───database
+│       chroma.py
+│       mongo.py
+│
+├───debug
+│       Readme.md
+│
+├───keys
+│       keys.py
+│
+├───llm
+│       agents.py
+│       chat.py
+│       decision.py
+│       prompts.py
+│       schemas.py
+│       sessions.py
+│       tools.py
+│
+├───rag
+│       file_handler.py
+│       file_management.py
+│       file_processor.py
+│
+└───utilities
+        garbage.py
+        s3_loader.py
+        save_json.py
+        scraping.py
+```
+
 ## Core Features
 
 ### Multi-Model Support
