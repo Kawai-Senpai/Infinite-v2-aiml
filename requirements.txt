@@ -8,3 +8,5 @@ pandas==2.2.3
 dockx==0.2.4
 PyPDF2==3.0.1
 beautifulsoup4==4.12.3
+duckduckgo_search==7.3.0
+numpy==1.26.4
