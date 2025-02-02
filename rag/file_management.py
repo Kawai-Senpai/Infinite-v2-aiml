@@ -7,7 +7,6 @@ from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 import hashlib
-from rag.file_handler import get_file_content
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -17,39 +16,15 @@ log = logger('file_management_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-def add_file(agent_id, file_type, details, chunk_size=3, overlap=1, chunk_type="sentence", collection_index=0):
-    """Add file from various sources and store vector embeddings."""
-    log.info(f"Adding {file_type} file for agent {agent_id}")
+def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence"):
+    """Chunk text and store vector embeddings, no PDF loading."""
+    log.info(f"Adding file '{file_name}' for agent {agent_id}")
     
-    # Validate file type
-    if file_type not in config.get("supported.file_types", []):
-        raise ValueError(f"Unsupported file type: {file_type}")
-    
-    # Validate details based on file type
-    if file_type in ["pdf", "docx", "excel"]:
-        required_fields = ["s3_key", "s3_bucket"]
-    else:  # webpage
-        required_fields = ["url"]
-        
-    if not all(field in details for field in required_fields):
-        raise ValueError(f"Missing required fields for {file_type}: {required_fields}")
-
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         log.error(f"Agent {agent_id} not found")
         raise ValueError("Agent not found")
-
-    if not agent.get("chroma_collections"):
-        log.error(f"Agent {agent_id} has no collections")
-        raise ValueError("Agent has no collections")
-
-    if collection_index >= len(agent["chroma_collections"]):
-        log.error(f"Collection index {collection_index} out of range")
-        raise ValueError("Collection index out of range")
-
-    # Get file content
-    text = get_file_content(file_type, details)
 
     # Chunk the text
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")
@@ -65,9 +40,9 @@ def add_file(agent_id, file_type, details, chunk_size=3, overlap=1, chunk_type="
         chunk_id = str(ObjectId())
         log.debug(f"Processing chunk {i+1}/{len(chunks)} with ID {chunk_id}")
         insert_documents(
-            collection_name=agent["chroma_collections"][collection_index],
+            collection_name=agent["chroma_collection"],
             documents=[chunk],
-            metadatas=[{"file_name": details.get("s3_key", details.get("url", "unknown"))}],
+            metadatas=[{"file_name": file_name}],
             ids=[chunk_id]
         )
         chunk_ids.append(chunk_id)
@@ -77,16 +52,13 @@ def add_file(agent_id, file_type, details, chunk_size=3, overlap=1, chunk_type="
     
     db.files.insert_one({
         "agent_id": ObjectId(agent_id),
-        "file_type": file_type,
-        "details": details,
+        "filename": file_name,
         "chunk_ids": chunk_ids,
         "file_hash": file_hash,
-        "collection_name": agent["chroma_collections"][collection_index],
-        "collection_index": collection_index,
         "uploaded_at": datetime.now(timezone.utc)
     })
     
-    log.success(f"Successfully added {file_type} with {len(chunk_ids)} chunks")
+    log.success(f"Successfully added file '{file_name}' with {len(chunk_ids)} chunks")
     return len(chunk_ids)
 
 def delete_file(agent_id, file_id):
@@ -99,15 +71,16 @@ def delete_file(agent_id, file_id):
         log.error(f"File {file_id} not found")
         raise ValueError("File not found")
     
-    # Delete from Chroma using stored collection name
-    log.debug(f"Deleting {len(file_data['chunk_ids'])} chunks from collection {file_data['collection_name']}")
-    try:
-        collection = chroma_client.get_collection(file_data['collection_name'])
-        collection.delete(ids=file_data["chunk_ids"])
-    except Exception as e:
-        log.error(f"Error deleting from collection: {e}")
-        raise
+    # Delete from Chroma
+    agent = db.find_one({"_id": ObjectId(agent_id)})
+    if not agent:
+        log.error(f"Agent {agent_id} not found")
+        raise ValueError("Agent not found")
+
+    log.debug(f"Deleting {len(file_data['chunk_ids'])} chunks from Chroma")
+    collection = chroma_client.get_collection(agent["chroma_collection"])
+    collection.delete(ids=file_data["chunk_ids"])
     
     # Delete metadata
     db.delete_one({"_id": ObjectId(file_id)})
-    log.success(f"Successfully deleted file {file_id} and its chunks from collection {file_data['collection_index']}")
+    log.success(f"Successfully deleted file {file_id} and its chunks")

@@ -34,9 +34,13 @@ def pingtest():
 
 #* Ensure required collections exist ------------------------------------------
 def create_collections():
-    collections = config.get("chroma.structure", [])
-    for collection in collections:
-        if collection not in [col.name for col in client.list_collections()]:
+    """Create shared documents collection if it doesn't exist"""
+    all_collections = [col.name for col in config.get("chroma.structure", [])]
+    chroma_collections = [col.name for col in client.list_collections()]
+    log.info(f"Existing collections: {chroma_collections}")
+    for collection in all_collections:
+        if collection not in chroma_collections:
+            log.success(f"Creating collection: {collection}")
             client.create_collection(collection)
 
 #! Embedding Insertion & Querying ---------------------------------------------
@@ -61,27 +65,36 @@ def embed(texts):
         log.error(f"Error generating embeddings: {str(e)}")
         return None
 
-def insert_documents(collection_name, documents, metadatas=None, ids=None):
-    """Insert document(s) into specified ChromaDB collection"""
+def insert_documents(agent_id, collection_id, documents, user_id=None, additional_metadata=None):
+    """Insert document(s) into shared collection with agent and collection identifiers"""
     try:
-        # Get the collection
-        collection = client.get_collection(collection_name)
+        collection = client.get_collection("documents")
         
         # Handle single document vs list of documents
         if isinstance(documents, str):
             documents = [documents]
-            metadatas = [metadatas] if metadatas else [{}]
-            ids = [ids] if ids else [str(ObjectId())]
+            additional_metadata = [additional_metadata] if additional_metadata else [{}]
+            ids = [str(ObjectId())]
         else:
-            # If no metadata provided, create empty dicts
-            metadatas = metadatas if metadatas else [{} for _ in documents]
-            # If no ids provided, generate ObjectIds
-            ids = ids if ids else [str(ObjectId()) for _ in documents]
+            additional_metadata = additional_metadata if additional_metadata else [{} for _ in documents]
+            ids = [str(ObjectId()) for _ in documents]
         
         # Generate embeddings
         embeddings = embed(documents)
         if embeddings is None:
             raise ValueError("Failed to generate embeddings")
+        
+        # Prepare metadata
+        metadatas = []
+        for meta in additional_metadata:
+            metadata = {
+                "agent_id": str(agent_id),
+                "collection_id": collection_id
+            }
+            if user_id:
+                metadata["user_id"] = str(user_id)
+            metadata.update(meta)
+            metadatas.append(metadata)
         
         # Insert into collection
         collection.add(
@@ -90,27 +103,16 @@ def insert_documents(collection_name, documents, metadatas=None, ids=None):
             metadatas=metadatas,
             ids=ids
         )
-        
-        log.success(f"Successfully inserted {len(documents)} document(s) into {collection_name}")
+        log.success(f"Inserted {len(documents)} document(s) into collection")
         return True, ids
-        
     except Exception as e:
-        log.error(f"Error inserting document(s) into {collection_name}: {str(e)}")
+        log.error(f"Error inserting document(s): {str(e)}")
         return False, None
 
-def search_documents(collection_name, query, n_results=5, similarity_threshold=config.get("chroma.threshold", 0.5)):
-    """
-    Search for similar documents in the specified collection
-    Args:
-        collection_name (str): Name of the collection to search in
-        query (str or list): Query text or list of queries
-        n_results (int): Number of results to return per query
-        similarity_threshold (float): Minimum similarity score (0-1) to include in results
-    Returns:
-        list: List of dictionaries containing search results
-    """
+def search_documents(agent_id, collection_id, query, n_results=5, similarity_threshold=config.get("chroma.threshold", 0.5)):
+    """Search for similar documents in the shared collection filtered by agent and collection IDs"""
     try:
-        collection = client.get_collection(collection_name)
+        collection = client.get_collection("documents")
         
         # Handle single query vs multiple queries
         if isinstance(query, str):
@@ -123,17 +125,17 @@ def search_documents(collection_name, query, n_results=5, similarity_threshold=c
         if query_embeddings is None:
             raise ValueError("Failed to generate query embeddings")
         
-        # Convert to list if single query
         if isinstance(query_embeddings[0], float):
             query_embeddings = [query_embeddings]
             
         all_results = []
         
-        # Process each query
+        # Process each query with metadata filtering
         for q, q_embedding in zip(queries, query_embeddings):
             result = collection.query(
                 query_embeddings=q_embedding,
                 n_results=n_results,
+                where={"agent_id": str(agent_id), "collection_id": collection_id},
                 include=['metadatas', 'documents', 'distances']
             )
             
@@ -171,5 +173,5 @@ def search_documents(collection_name, query, n_results=5, similarity_threshold=c
         return all_results
         
     except Exception as e:
-        log.error(f"Error searching documents in {collection_name}: {str(e)}")
+        log.error(f"Error searching documents in collection: {str(e)}")
         return None

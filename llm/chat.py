@@ -26,8 +26,7 @@ cohere_client = cohere.Client(cohere_api_key)
 
 #! Getters and setters -------------------------------------------------------
 def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
-    """Get relevant context from all collections using session-specific settings"""
-
+    """Get relevant context using collection IDs"""
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     if not agent:
@@ -37,12 +36,11 @@ def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
     if not session:
         raise ValueError("Session not found")
     
-    max_results = session.get("max_context_results", 5)  # Default to 5 if not set
+    max_results = session.get("max_context_results", 5)
     
-    #TODO: Do this in parallel
     all_results = []
-    for collection_name in agent["chroma_collections"]:
-        results = search_documents(collection_name, query, n_results=max_results)
+    for collection_id in agent["collection_ids"]:
+        results = search_documents(str(agent["_id"]), collection_id, query, n_results=max_results)
         if results and results["matches"]:
             all_results.append(results)
     return all_results

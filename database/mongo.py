@@ -24,7 +24,7 @@ def pingtest():
         client.admin.command('ping')
         return True
     except Exception as e:
-        print(e)
+        log.error(e)
         return False
 
 #* Ensure required databases and collections exist ---------------------------
@@ -49,53 +49,52 @@ def init_db_structure():
     for db_name, collections in required_structure.items():
         # Create database by accessing it
         db = client[db_name]
-        
         for collection_name in collections:
             if not collection_exists(db_name, collection_name):
                 # Create collection by accessing it
                 db.create_collection(collection_name)
-                print(f"Created collection {collection_name} in database {db_name}")
+                log.success(f"Created collection '{collection_name}' in database '{db_name}'")
 
 def check_mongo_structure(verbose=True):
     """Comprehensive check of the MongoDB structure with verbose output."""
     if verbose:
-        print("Checking MongoDB connection...")
+        log.info("Checking MongoDB connection...")
     
     if not pingtest():
-        print("❌ MongoDB connection failed!")
+        log.error("MongoDB connection failed!")
         return False
     
     if verbose:
-        print("✓ MongoDB connection successful!")
+        log.success("MongoDB connection successful!")
 
     required_structure = get_required_structure()
 
     all_ok = True
     for db_name, collections in required_structure.items():
         if verbose:
-            print(f"\nChecking database '{db_name}'...")
+            log.info(f"\nChecking database '{db_name}'...")
         
         if not database_exists(db_name):
             if verbose:
-                print(f"❌ Database '{db_name}' does not exist!")
+                log.error(f"Database '{db_name}' does not exist!")
             all_ok = False
             continue
         
         if verbose:
-            print(f"✓ Database '{db_name}' exists")
+            log.success(f"Database '{db_name}' exists")
         
         for collection_name in collections:
             if verbose:
-                print(f"  Checking collection '{collection_name}'...")
+                log.info(f"Checking collection '{collection_name}'...")
             
             if not collection_exists(db_name, collection_name):
                 if verbose:
-                    print(f"  ❌ Collection '{collection_name}' does not exist!")
+                    log.error(f"Collection '{collection_name}' does not exist!")
                 all_ok = False
                 continue
             
             if verbose:
-                print(f"  ✓ Collection '{collection_name}' exists")
+                log.success(f"Collection '{collection_name}' exists")
 
     return all_ok
 

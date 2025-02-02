@@ -1,6 +1,6 @@
 from database.mongo import client as mongo_client
 from database.chroma import client as chroma_client
-from keys.keys import environment, openai_api_key
+from keys.keys import environment
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
 from datetime import datetime, timezone
@@ -26,7 +26,7 @@ def create_agent(name,
                 num_collections=1,
                 max_memory_size=1,
                 user_id=None):
-    """Create new agent with associated Chroma collections"""
+    """Create new agent with collection IDs"""
 
     #model provider must be any of the following
     if model_provider not in config.get("supported.model_providers", ["openai"]):
@@ -49,12 +49,8 @@ def create_agent(name,
     if not isinstance(max_memory_size, int) or not 1 <= max_memory_size <= config.get("constraints.max_memory_size", 10):
         raise ValueError("max_memory_size must be an integer between 1 and 10")
 
-    # Create multiple Chroma collections
-    collection_names = []
-    for _ in range(num_collections):
-        collection_name = str(ObjectId())
-        chroma_client.create_collection(collection_name)
-        collection_names.append(collection_name)
+    # Generate collection IDs instead of creating collections
+    collection_ids = [str(ObjectId()) for _ in range(num_collections)]
     
     # Create MongoDB record
     db = mongo_client.ai.agents
@@ -67,7 +63,7 @@ def create_agent(name,
         "model": model,
         "max_history": max_history,
         "tools": tools,
-        "chroma_collections": collection_names,
+        "collection_ids": collection_ids,  # Replace chroma_collections with collection_ids
         "files": [],
         "memory": [], 
         "max_memory_size": max_memory_size, 

@@ -11,8 +11,7 @@
         }
     },
     "chroma": {
-        "structure": [
-        ],
+        "structure": ["documents"],
         "threshold": 0.5
     },
     "models": {
