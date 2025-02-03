@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Request, Body
 from llm.agents import (
     create_agent,
     delete_agent,
@@ -12,34 +11,28 @@ from errors.error_logger import log_exception_with_request
 
 router = APIRouter()
 
+# Removed CreateAgentBody model
+
 @router.post("/create")
-def create_agent_endpoint(
+async def create_agent_endpoint(
     request: Request,
-    name: str,
-    role: str = "",
-    capabilities: list = [],
-    rules: list = [],
-    model_provider: str = "openai",
-    model: str = "gpt-4o",
-    max_history: int = 20,
-    tools: list = [],
-    num_collections: int = 1,
-    max_memory_size: int = 1,
-    user_id: Optional[str] = None,
-    agent_type: str = "private"
+    user_id: str,       
+    agent_type: str,   
+    name: str,       
+    body: dict = Body(...)  # the rest from the body as a plain dict
 ):
     try:
         agent_id = create_agent(
             name=name,
-            role=role,
-            capabilities=capabilities,
-            rules=rules,
-            model_provider=model_provider,
-            model=model,
-            max_history=max_history,
-            tools=tools,
-            num_collections=num_collections,
-            max_memory_size=max_memory_size,
+            role=body.get("role", ""),
+            capabilities=body.get("capabilities", []),
+            rules=body.get("rules", []),
+            model_provider=body.get("model_provider", "openai"),
+            model=body.get("model", "gpt-4o"),
+            max_history=body.get("max_history", 20),
+            tools=body.get("tools", []),
+            num_collections=body.get("num_collections", 1),
+            max_memory_size=body.get("max_memory_size", 1),
             user_id=user_id,
             agent_type=agent_type
         )
@@ -51,7 +44,7 @@ def create_agent_endpoint(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.delete("/delete/{agent_id}")
-def delete_agent_endpoint(agent_id: str, request: Request):
+async def delete_agent_endpoint(agent_id: str, request: Request):
     try:
         delete_agent(agent_id)
         return {"message": f"Agent {agent_id} deleted successfully."}
@@ -62,7 +55,7 @@ def delete_agent_endpoint(agent_id: str, request: Request):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_public")
-def list_public_agents(request: Request):
+async def list_public_agents(request: Request):
     try:
         return get_all_public_agents()
     except Exception as e:
@@ -70,7 +63,7 @@ def list_public_agents(request: Request):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_approved")
-def list_approved_agents(request: Request):
+async def list_approved_agents(request: Request):
     try:
         return get_all_approved_agents()
     except Exception as e:
@@ -78,7 +71,7 @@ def list_approved_agents(request: Request):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_system")
-def list_system_agents(request: Request):
+async def list_system_agents(request: Request):
     try:
         return get_all_system_agents()
     except Exception as e:
@@ -86,7 +79,7 @@ def list_system_agents(request: Request):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_user/{user_id}")
-def list_user_agents(user_id: str, request: Request):
+async def list_user_agents(user_id: str, request: Request):
     try:
         return get_all_agents_for_user(user_id)
     except Exception as e:

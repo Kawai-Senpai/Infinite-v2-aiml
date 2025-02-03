@@ -11,9 +11,9 @@ app = FastAPI()
 # Include the agent router at path "/agents"
 app.include_router(agent_router, prefix="/agents", tags=["agents"])
 
-# New status route
+# New async status route
 @app.get("/status")
-def status(request: Request):
+async def status(request: Request):
     try:
         mongo_status = "up" if mongo_pingtest() else "down"
         chroma_status = "up" if chroma_pingtest() else "down"
