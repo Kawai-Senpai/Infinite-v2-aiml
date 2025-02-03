@@ -4,6 +4,8 @@ debug/*
 cache/*
 .env.development
 .env.production
+_test_data
+__pycache__
 
 #! Don't ignore
 !debug/Readme.md

@@ -12,7 +12,6 @@ from errors.error_logger import log_exception_with_request
 router = APIRouter()
 
 # Removed CreateAgentBody model
-
 @router.post("/create")
 async def create_agent_endpoint(
     request: Request,
