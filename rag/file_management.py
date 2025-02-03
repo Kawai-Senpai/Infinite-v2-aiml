@@ -16,7 +16,7 @@ log = logger('file_management_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-def add_file(agent_id, text, file_name, type, chunk_size=3, overlap=1, chunk_type="sentence", collection_id=None, origin=None):
+def add_file(agent_id, text, file_name, file_type, chunk_size=3, overlap=1, chunk_type="sentence", collection_id=None, origin=None):
     """Chunk text and store vector embeddings, no PDF loading."""
     log.info(f"Adding file '{file_name}' for agent {agent_id}")
     
@@ -34,14 +34,14 @@ def add_file(agent_id, text, file_name, type, chunk_size=3, overlap=1, chunk_typ
 
     # Validate and update origin if provided
     if origin is not None:
-        if type is None:
-            raise ValueError("type must be provided")
+        if file_type is None:
+            raise ValueError("file_type must be provided")
         supported_types = config.get("supported.file_types", [])
-        if type not in supported_types:
-            raise ValueError(f"Unsupported type. Supported types: {supported_types}")
-        origin["type"] = type
+        if file_type not in supported_types:
+            raise ValueError(f"Unsupported file_type. Supported types: {supported_types}")
+        origin["type"] = file_type
     else:
-        origin = {"type": type}
+        origin = {"type": file_type}
 
     # Chunk the text
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")

@@ -16,8 +16,8 @@ log = logger('sessions_log',
 #! Chat session functions --------------------------------------------------
 def create_session(agent_id: str, max_context_results: int = 1) -> str:
     """Create a new chat session for an agent"""
-    db = mongo_client.ai.agents
-    agent = db.find_one({"_id": ObjectId(agent_id)})
+    db = mongo_client.ai  # Changed from mongo_client.ai.agents
+    agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         raise ValueError("Agent not found")
     

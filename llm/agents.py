@@ -81,7 +81,8 @@ def create_agent(name,
     if user_id:
         agent_data["user_id"] = user_id
     
-    agent = db.agents.insert_one(agent_data)
+    # Updated: insert directly into the agents collection
+    agent = db.insert_one(agent_data)
     return agent.inserted_id
 
 def delete_agent(agent_id):
