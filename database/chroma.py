@@ -175,3 +175,42 @@ def search_documents(agent_id, collection_id, query, n_results=5, similarity_thr
     except Exception as e:
         log.error(f"Error searching documents in collection: {str(e)}")
         return None
+
+def delete_agent_documents(agent_id):
+    """Delete all documents associated with an agent"""
+    try:
+        collection = client.get_collection("documents")
+        collection.delete(where={"agent_id": str(agent_id)})
+        log.success(f"Deleted all documents for agent {agent_id}")
+        return True
+    except Exception as e:
+        log.error(f"Error deleting agent documents: {str(e)}")
+        return False
+
+def delete_file_documents(agent_id, file_id):
+    """Delete all documents associated with a specific file"""
+    try:
+        collection = client.get_collection("documents")
+        collection.delete(where={
+            "agent_id": str(agent_id),
+            "file_id": str(file_id)
+        })
+        log.success(f"Deleted documents for file {file_id}")
+        return True
+    except Exception as e:
+        log.error(f"Error deleting file documents: {str(e)}")
+        return False
+
+def delete_collection_documents(agent_id, collection_id):
+    """Delete all documents in a specific collection"""
+    try:
+        collection = client.get_collection("documents")
+        collection.delete(where={
+            "agent_id": str(agent_id),
+            "collection_id": collection_id
+        })
+        log.success(f"Deleted documents for collection {collection_id}")
+        return True
+    except Exception as e:
+        log.error(f"Error deleting collection documents: {str(e)}")
+        return False

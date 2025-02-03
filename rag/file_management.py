@@ -1,5 +1,5 @@
 from database.mongo import client as mongo_client
-from database.chroma import client as chroma_client, insert_documents
+from database.chroma import client as insert_documents, delete_file_documents
 from rag.file_processor import sentence_chunker, character_chunker
 from keys.keys import environment
 from ultraconfiguration import UltraConfig
@@ -16,7 +16,7 @@ log = logger('file_management_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence"):
+def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence", collection_id=None):
     """Chunk text and store vector embeddings, no PDF loading."""
     log.info(f"Adding file '{file_name}' for agent {agent_id}")
     
@@ -25,6 +25,12 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
     if not agent:
         log.error(f"Agent {agent_id} not found")
         raise ValueError("Agent not found")
+
+    # Use first collection ID if none specified
+    if not collection_id:
+        collection_id = agent["collection_ids"][0]
+    elif collection_id not in agent["collection_ids"]:
+        raise ValueError("Invalid collection ID for this agent")
 
     # Chunk the text
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")
@@ -36,14 +42,20 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
     log.info(f"Created {len(chunks)} chunks from file")
 
     chunk_ids = []
+    file_id = str(ObjectId())  # Generate file_id first
+    
     for i, chunk in enumerate(chunks):
         chunk_id = str(ObjectId())
         log.debug(f"Processing chunk {i+1}/{len(chunks)} with ID {chunk_id}")
         insert_documents(
-            collection_name=agent["chroma_collection"],
+            agent_id=agent_id,
+            collection_id=collection_id,
             documents=[chunk],
-            metadatas=[{"file_name": file_name}],
-            ids=[chunk_id]
+            additional_metadata=[{
+                "file_name": file_name,
+                "file_id": file_id,  # Add file_id to metadata
+                "chunk_number": i + 1
+            }]
         )
         chunk_ids.append(chunk_id)
 
@@ -71,16 +83,33 @@ def delete_file(agent_id, file_id):
         log.error(f"File {file_id} not found")
         raise ValueError("File not found")
     
-    # Delete from Chroma
-    agent = db.find_one({"_id": ObjectId(agent_id)})
-    if not agent:
-        log.error(f"Agent {agent_id} not found")
-        raise ValueError("Agent not found")
-
-    log.debug(f"Deleting {len(file_data['chunk_ids'])} chunks from Chroma")
-    collection = chroma_client.get_collection(agent["chroma_collection"])
-    collection.delete(ids=file_data["chunk_ids"])
+    # Delete from Chroma using centralized function
+    delete_file_documents(agent_id, file_id)
     
     # Delete metadata
     db.delete_one({"_id": ObjectId(file_id)})
     log.success(f"Successfully deleted file {file_id} and its chunks")
+
+def get_all_files_for_agent(agent_id):
+    """Return all files for a given agent."""
+    db = mongo_client.ai.files
+    return list(db.find({"agent_id": ObjectId(agent_id)}))
+
+def get_all_collections_for_agent(agent_id):
+    """Return all collection IDs for a given agent."""
+    db = mongo_client.ai.agents
+    agent = db.find_one({"_id": ObjectId(agent_id)})
+    return agent.get("collection_ids", []) if agent else []
+
+def get_all_files_for_collection(agent_id, collection_id):
+    """
+    Return files associated with a specific collection ID. 
+    (This checks the agent has that collection_id and returns all its files.)
+    """
+    db_agents = mongo_client.ai.agents
+    db_files = mongo_client.ai.files
+    agent = db_agents.find_one({"_id": ObjectId(agent_id)})
+    if not agent or collection_id not in agent.get("collection_ids", []):
+        return []
+    # Return all files belonging to this agent
+    return list(db_files.find({"agent_id": ObjectId(agent_id)}))

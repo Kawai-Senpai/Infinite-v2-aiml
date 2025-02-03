@@ -5,6 +5,7 @@ from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
+from database.chroma import delete_agent_documents
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -25,8 +26,14 @@ def create_agent(name,
                 tools=[],
                 num_collections=1,
                 max_memory_size=1,
-                user_id=None):
+                user_id=None,
+                agent_type="private"):  # Add agent_type parameter
     """Create new agent with collection IDs"""
+
+    # Validate agent type
+    valid_agent_types = ["system", "public", "approved", "private"]
+    if agent_type not in valid_agent_types:
+        raise ValueError("Invalid agent type. Must be one of: system, public, approved, private")
 
     #model provider must be any of the following
     if model_provider not in config.get("supported.model_providers", ["openai"]):
@@ -68,7 +75,7 @@ def create_agent(name,
         "memory": [], 
         "max_memory_size": max_memory_size, 
         "created_at": datetime.now(timezone.utc),
-        "system_agent": False
+        "agent_type": agent_type  # Replace system_agent with agent_type
     }
     
     if user_id:
@@ -79,23 +86,37 @@ def create_agent(name,
 
 def delete_agent(agent_id):
     """Completely remove an agent and its data"""
-    
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     
     if not agent:
         raise ValueError("Agent not found")
-        
-    # Prevent deletion of system agents
-    if agent.get("system_agent", False):
-        raise PermissionError("Cannot delete system agents")
     
-    # Delete all Chroma collections
-    for collection_name in agent["chroma_collections"]:
-        chroma_client.delete_collection(collection_name)
+    # Delete all documents from Chroma
+    delete_agent_documents(agent_id)
     
     # Delete all associated files
     db.files.delete_many({"agent_id": ObjectId(agent_id)})
     
     # Delete agent record
     db.agents.delete_one({"_id": ObjectId(agent_id)})
+
+def get_all_agents_for_user(user_id):
+    """Return all agents that belong to a specific user."""
+    db = mongo_client.ai
+    return list(db.agents.find({"user_id": str(user_id)}))
+
+def get_all_public_agents():
+    """Return all agents with agent_type='public'."""
+    db = mongo_client.ai
+    return list(db.agents.find({"agent_type": "public"}))
+
+def get_all_approved_agents():
+    """Return all agents with agent_type='approved'."""
+    db = mongo_client.ai
+    return list(db.agents.find({"agent_type": "approved"}))
+
+def get_all_system_agents():
+    """Return all agents with agent_type='system'."""
+    db = mongo_client.ai
+    return list(db.agents.find({"agent_type": "system"}))
