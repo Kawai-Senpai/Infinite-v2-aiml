@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Optional
 from llm.agents import (
     create_agent,
@@ -8,11 +8,13 @@ from llm.agents import (
     get_all_system_agents,
     get_all_agents_for_user
 )
+from errors.error_logger import log_exception_with_request
 
 router = APIRouter()
 
 @router.post("/create")
 def create_agent_endpoint(
+    request: Request,
     name: str,
     role: str = "",
     capabilities: list = [],
@@ -45,42 +47,48 @@ def create_agent_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        log_exception_with_request(e, create_agent_endpoint, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.delete("/delete/{agent_id}")
-def delete_agent_endpoint(agent_id: str):
+def delete_agent_endpoint(agent_id: str, request: Request):
     try:
         delete_agent(agent_id)
         return {"message": f"Agent {agent_id} deleted successfully."}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        log_exception_with_request(e, delete_agent_endpoint, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_public")
-def list_public_agents():
+def list_public_agents(request: Request):
     try:
         return get_all_public_agents()
     except Exception as e:
+        log_exception_with_request(e, list_public_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_approved")
-def list_approved_agents():
+def list_approved_agents(request: Request):
     try:
         return get_all_approved_agents()
     except Exception as e:
+        log_exception_with_request(e, list_approved_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_system")
-def list_system_agents():
+def list_system_agents(request: Request):
     try:
         return get_all_system_agents()
     except Exception as e:
+        log_exception_with_request(e, list_system_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_user/{user_id}")
-def list_user_agents(user_id: str):
+def list_user_agents(user_id: str, request: Request):
     try:
         return get_all_agents_for_user(user_id)
     except Exception as e:
+        log_exception_with_request(e, list_user_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
