@@ -79,7 +79,7 @@ def create_agent(name,
     }
     
     if user_id:
-        agent_data["user_id"] = user_id
+        agent_data["user_id"] = ObjectId(user_id)
     
     # Updated: insert directly into the agents collection
     agent = db.insert_one(agent_data)
@@ -105,7 +105,7 @@ def delete_agent(agent_id):
 def get_all_agents_for_user(user_id):
     """Return all agents that belong to a specific user."""
     db = mongo_client.ai
-    return list(db.agents.find({"user_id": str(user_id)}))
+    return list(db.agents.find({"user_id": ObjectId(user_id)}))
 
 def get_all_public_agents():
     """Return all agents with agent_type='public'."""
