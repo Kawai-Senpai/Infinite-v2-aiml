@@ -1,5 +1,5 @@
 from database.mongo import client as mongo_client
-from database.chroma import client as insert_documents, delete_file_documents
+from database.chroma import insert_documents, delete_file_documents
 from rag.file_processor import sentence_chunker, character_chunker
 from keys.keys import environment
 from ultraconfiguration import UltraConfig
@@ -16,7 +16,7 @@ log = logger('file_management_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sentence", collection_id=None):
+def add_file(agent_id, text, file_name, type, chunk_size=3, overlap=1, chunk_type="sentence", collection_id=None, origin=None):
     """Chunk text and store vector embeddings, no PDF loading."""
     log.info(f"Adding file '{file_name}' for agent {agent_id}")
     
@@ -31,6 +31,17 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
         collection_id = agent["collection_ids"][0]
     elif collection_id not in agent["collection_ids"]:
         raise ValueError("Invalid collection ID for this agent")
+
+    # Validate and update origin if provided
+    if origin is not None:
+        if type is None:
+            raise ValueError("type must be provided")
+        supported_types = config.get("supported.file_types", [])
+        if type not in supported_types:
+            raise ValueError(f"Unsupported type. Supported types: {supported_types}")
+        origin["type"] = type
+    else:
+        origin = {"type": type}
 
     # Chunk the text
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")
@@ -62,11 +73,14 @@ def add_file(agent_id, text, file_name, chunk_size=3, overlap=1, chunk_type="sen
     file_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
     log.debug(f"File hash: {file_hash}")
     
-    db.files.insert_one({
+    files_collection = mongo_client.ai.files
+    files_collection.insert_one({
         "agent_id": ObjectId(agent_id),
         "filename": file_name,
         "chunk_ids": chunk_ids,
         "file_hash": file_hash,
+        "collection_id": collection_id,  # Added collection_id to file record
+        "origin": origin,               # New field: stores the origin dict with type added
         "uploaded_at": datetime.now(timezone.utc)
     })
     
@@ -103,13 +117,10 @@ def get_all_collections_for_agent(agent_id):
 
 def get_all_files_for_collection(agent_id, collection_id):
     """
-    Return files associated with a specific collection ID. 
-    (This checks the agent has that collection_id and returns all its files.)
+    Return files associated with a specific collection ID by filtering with both agent_id and collection_id.
     """
-    db_agents = mongo_client.ai.agents
     db_files = mongo_client.ai.files
-    agent = db_agents.find_one({"_id": ObjectId(agent_id)})
-    if not agent or collection_id not in agent.get("collection_ids", []):
-        return []
-    # Return all files belonging to this agent
-    return list(db_files.find({"agent_id": ObjectId(agent_id)}))
+    return list(db_files.find({
+        "agent_id": ObjectId(agent_id),
+        "collection_id": collection_id
+    }))

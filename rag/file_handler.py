@@ -18,6 +18,7 @@ log = logger('file_handler_log',
 
 def extract_from_pdf(s3_key, bucket_name):
     """Extract text from PDF file stored in S3"""
+    local_path = None
     try:
         local_path = download_from_s3(s3_key, bucket_name=bucket_name, unique_filename=True)
         with open(local_path, 'rb') as file:
@@ -25,38 +26,43 @@ def extract_from_pdf(s3_key, bucket_name):
             text = ""
             for page in reader.pages:
                 text += page.extract_text() + "\n"
-        cleanup_cache(local_path)
         return text.strip()
     except Exception as e:
         log.error(f"Error extracting PDF text: {str(e)}")
-        cleanup_cache(local_path)
         raise
+    finally:
+        if local_path:
+            cleanup_cache(local_path)
 
 def extract_from_docx(s3_key, bucket_name):
     """Extract text from DOCX file stored in S3"""
+    local_path = None
     try:
         local_path = download_from_s3(s3_key, bucket_name=bucket_name, unique_filename=True)
         doc = docx.Document(local_path)
         text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        cleanup_cache(local_path)
         return text.strip()
     except Exception as e:
         log.error(f"Error extracting DOCX text: {str(e)}")
-        cleanup_cache(local_path)
         raise
+    finally:
+        if local_path:
+            cleanup_cache(local_path)
 
 def extract_from_excel(s3_key, bucket_name):
     """Extract text from Excel file stored in S3"""
+    local_path = None
     try:
         local_path = download_from_s3(s3_key, bucket_name=bucket_name, unique_filename=True)
         df = pd.read_excel(local_path)
         text = df.to_string()
-        cleanup_cache(local_path)
         return text.strip()
     except Exception as e:
         log.error(f"Error extracting Excel text: {str(e)}")
-        cleanup_cache(local_path)
         raise
+    finally:
+        if local_path:
+            cleanup_cache(local_path)
 
 def extract_from_webpage(url):
     """Extract text from webpage"""
