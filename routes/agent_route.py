@@ -56,33 +56,58 @@ async def delete_agent_endpoint(agent_id: str, user_id: str = None, request: Req
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_public")
-async def list_public_agents(request: Request):
+async def list_public_agents(
+    request: Request, 
+    limit: int = 20, 
+    skip: int = 0, 
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
     try:
-        return get_all_public_agents()
+        return get_all_public_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
     except Exception as e:
         log_exception_with_request(e, list_public_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_approved")
-async def list_approved_agents(request: Request):
+async def list_approved_agents(
+    request: Request, 
+    limit: int = 20, 
+    skip: int = 0, 
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
     try:
-        return get_all_approved_agents()
+        return get_all_approved_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
     except Exception as e:
         log_exception_with_request(e, list_approved_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_system")
-async def list_system_agents(request: Request):
+async def list_system_agents(
+    request: Request, 
+    limit: int = 20, 
+    skip: int = 0, 
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
     try:
-        return get_all_system_agents()
+        return get_all_system_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
     except Exception as e:
         log_exception_with_request(e, list_system_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/get_user/{user_id}")
-async def list_user_agents(user_id: str, request: Request):
+async def list_user_agents(
+    user_id: str, 
+    request: Request, 
+    limit: int = 20, 
+    skip: int = 0, 
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
     try:
-        return get_all_agents_for_user(user_id)
+        return get_all_agents_for_user(user_id, limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
     except Exception as e:
         log_exception_with_request(e, list_user_agents, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")

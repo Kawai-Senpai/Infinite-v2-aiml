@@ -94,3 +94,30 @@ def get_recent_history(session_id: str, max_history: int, user_id: str = None) -
             raise ValueError("Not authorized to view this session")
     history = session.get("history", [])
     return history[-max_history:] if max_history > 0 else history
+
+def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
+    """Get all sessions belonging to a user with pagination and sorting."""
+    db = mongo_client.ai
+    return list(db.sessions.find({"user_id": ObjectId(user_id)})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
+
+def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
+    """Get all sessions for a specific agent with optional user security check."""
+    db = mongo_client.ai
+    
+    # First check if user is authorized to view this agent's sessions
+    if user_id:
+        agent = db.agents.find_one({"_id": ObjectId(agent_id)})
+        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
+            raise ValueError("Not authorized to view sessions for this agent")
+    
+    query = {"agent_id": ObjectId(agent_id)}
+    if user_id:
+        query["user_id"] = ObjectId(user_id)
+    
+    return list(db.sessions.find(query)
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))

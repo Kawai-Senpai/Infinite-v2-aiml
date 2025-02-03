@@ -1,5 +1,4 @@
 from database.mongo import client as mongo_client
-from database.chroma import client as chroma_client
 from keys.keys import environment
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
@@ -105,25 +104,37 @@ def delete_agent(agent_id, user_id=None):
     # Delete agent record
     db.agents.delete_one({"_id": ObjectId(agent_id)})
 
-def get_all_agents_for_user(user_id):
-    """Return all agents that belong to a specific user."""
+def get_all_agents_for_user(user_id, limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of agents that belong to a specific user."""
     db = mongo_client.ai
-    return list(db.agents.find({"user_id": ObjectId(user_id)}))
+    return list(db.agents.find({"user_id": ObjectId(user_id)})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
 
-def get_all_public_agents():
-    """Return all agents with agent_type='public'."""
+def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of public agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "public"}))
+    return list(db.agents.find({"agent_type": "public"})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
 
-def get_all_approved_agents():
-    """Return all agents with agent_type='approved'."""
+def get_all_approved_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of approved agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "approved"}))
+    return list(db.agents.find({"agent_type": "approved"})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
 
-def get_all_system_agents():
-    """Return all agents with agent_type='system'."""
+def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of system agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "system"}))
+    return list(db.agents.find({"agent_type": "system"})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
 
 def get_agent(agent_id, user_id=None):
     """Return details of a single agent by agent_id; if user_id is given, restrict access to agents owned by that user."""

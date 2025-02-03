@@ -120,15 +120,18 @@ def delete_file(agent_id, file_id, user_id=None):
     db_files.delete_one({"_id": ObjectId(file_id)})
     log.success(f"Successfully deleted file {file_id} and its chunks")
 
-def get_all_files_for_agent(agent_id, user_id=None):
-    """Return all files for a given agent with optional security check."""
+def get_all_files_for_agent(agent_id, user_id=None, limit=20, skip=0, sort_by="uploaded_at", sort_order=-1):
+    """Return paginated and sorted list of files for a given agent with optional security check."""
     db = mongo_client.ai
     if user_id:
         agent = db.agents.find_one({"_id": ObjectId(agent_id)})
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view files for this agent")
     
-    return list(db.files.find({"agent_id": ObjectId(agent_id)}))
+    return list(db.files.find({"agent_id": ObjectId(agent_id)})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
 
 def get_all_collections_for_agent(agent_id, user_id=None):
     """Return all collection IDs for a given agent with optional security check."""
@@ -140,10 +143,8 @@ def get_all_collections_for_agent(agent_id, user_id=None):
         raise ValueError("Not authorized to view collections for this agent")
     return agent.get("collection_ids", [])
 
-def get_all_files_for_collection(agent_id, collection_id, user_id=None):
-    """
-    Return files associated with a specific collection ID with optional security check.
-    """
+def get_all_files_for_collection(agent_id, collection_id, user_id=None, limit=20, skip=0, sort_by="uploaded_at", sort_order=-1):
+    """Return paginated and sorted list of files for a collection with optional security check."""
     db = mongo_client.ai
     if user_id:
         agent = db.agents.find_one({"_id": ObjectId(agent_id)})
@@ -153,4 +154,6 @@ def get_all_files_for_collection(agent_id, collection_id, user_id=None):
     return list(db.files.find({
         "agent_id": ObjectId(agent_id),
         "collection_id": collection_id
-    }))
+    }).sort(sort_by, sort_order)
+        .skip(skip)
+        .limit(limit))
