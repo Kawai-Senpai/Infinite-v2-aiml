@@ -85,13 +85,16 @@ def create_agent(name,
     agent = db.insert_one(agent_data)
     return agent.inserted_id
 
-def delete_agent(agent_id):
-    """Completely remove an agent and its data"""
+def delete_agent(agent_id, user_id=None):
+    """Completely remove an agent and its data; if user_id is given, only allow deletion if it matches."""
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     
     if not agent:
         raise ValueError("Agent not found")
+    
+    if user_id and ("user_id" not in agent or str(agent["user_id"]) != user_id):
+        raise ValueError("Not authorized to delete this agent")
     
     # Delete all documents from Chroma
     delete_agent_documents(agent_id)
@@ -121,3 +124,13 @@ def get_all_system_agents():
     """Return all agents with agent_type='system'."""
     db = mongo_client.ai
     return list(db.agents.find({"agent_type": "system"}))
+
+def get_agent(agent_id, user_id=None):
+    """Return details of a single agent by agent_id; if user_id is given, restrict access to agents owned by that user."""
+    db = mongo_client.ai.agents
+    agent = db.find_one({"_id": ObjectId(agent_id)})
+    if not agent:
+        raise ValueError("Agent not found")
+    if user_id and ("user_id" in agent and str(agent["user_id"]) != user_id):
+        raise ValueError("Not authorized to view this agent")
+    return agent

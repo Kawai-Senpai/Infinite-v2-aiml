@@ -1,7 +1,7 @@
 from database.mongo import client as db
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import traceback
 from keys.keys import environment
 from ultraprint.logging import logger
@@ -32,7 +32,7 @@ def log_exception(exception, function):
             "function": function_name,
             "exception": str(exception),
             "traceback": tb,
-            "timestamp": datetime.now(datetime.timezone.utc)
+            "timestamp": datetime.now(timezone.utc)
         }
         collection.insert_one(error_entry)
         # Log to CSV
@@ -42,7 +42,7 @@ def log_exception(exception, function):
             writer = csv.writer(file)
             if not file_exists:
                 writer.writerow(["timestamp", "function", "exception", "traceback"])
-            writer.writerow([datetime.now(datetime.timezone.utc), function_name, str(exception), tb])
+            writer.writerow([datetime.now(timezone.utc), function_name, str(exception), tb])
     except Exception as e:
         log.error(e)
 
@@ -59,7 +59,7 @@ def log_exception_with_request(exception, function, request):
             "function": function_name,
             "exception": str(exception),
             "traceback": tb,
-            "timestamp": datetime.now(datetime.timezone.utc),
+            "timestamp": datetime.now(timezone.utc),
             "request": {
                 "url": request.url,
                 "method": request.method,
@@ -77,7 +77,7 @@ def log_exception_with_request(exception, function, request):
             if not file_exists:
                 writer.writerow(["timestamp", "function", "exception", "traceback", "url", "method", "headers", "body"])
             writer.writerow([
-                datetime.now(datetime.timezone.utc), 
+                datetime.now(timezone.utc), 
                 function_name, 
                 str(exception), 
                 tb, 

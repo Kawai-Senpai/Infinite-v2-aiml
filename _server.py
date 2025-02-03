@@ -5,6 +5,7 @@ from errors.error_logger import log_exception_with_request
 from database.mongo import pingtest as mongo_pingtest
 from database.chroma import pingtest as chroma_pingtest 
 from fastapi import Request
+import uvicorn
 
 app = FastAPI()
 
@@ -13,6 +14,7 @@ app.include_router(agent_router, prefix="/agents", tags=["agents"])
 
 # New async status route
 @app.get("/status")
+@app.get("/")
 async def status(request: Request):
     try:
         mongo_status = "up" if mongo_pingtest() else "down"
@@ -31,3 +33,6 @@ async def status(request: Request):
             "mongodb": "down",
             "chromadb": "down"
         }
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=8000)
