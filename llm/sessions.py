@@ -23,10 +23,8 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
     if not isinstance(max_context_results, int) or max_context_results < 1:
         raise ValueError("max_context_results must be a positive integer")
     
-    session_id = str(ObjectId())
     session_doc = {
         "agent_id": ObjectId(agent_id),
-        "session_id": session_id,
         "history": [],
         "max_context_results": max_context_results,
         "created_at": datetime.now(timezone.utc)
@@ -34,27 +32,27 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
     if user_id:
         session_doc["user_id"] = ObjectId(user_id)
     
-    db.sessions.insert_one(session_doc)
-    return session_id
+    result = db.sessions.insert_one(session_doc)
+    return str(result.inserted_id)  # Return MongoDB's _id directly
 
 def delete_session(session_id: str, user_id: str = None):
     """Delete a chat session with security check."""
     db = mongo_client.ai
-    session = db.sessions.find_one({"session_id": session_id})
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
     if user_id:
         agent = db.agents.find_one({"_id": session["agent_id"]})
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to delete this session")
-    result = db.sessions.delete_one({"session_id": session_id})
+    result = db.sessions.delete_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if result.deleted_count == 0:
         raise ValueError("Session not found")
 
 def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
     """Get details of a single session with security check and paginated history."""
     db = mongo_client.ai
-    session = db.sessions.find_one({"session_id": session_id})
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
     if user_id:
@@ -84,7 +82,7 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
 def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> list:
     """Get paginated chat history for a session with security check."""
     db = mongo_client.ai
-    session = db.sessions.find_one({"session_id": session_id})
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
     if user_id:
@@ -111,7 +109,7 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
 def update_session_history(session_id: str, role: str, content: str, user_id: str = None):
     """Add message to session history with security check."""
     db = mongo_client.ai
-    session = db.sessions.find_one({"session_id": session_id})
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
     if user_id:
@@ -119,7 +117,7 @@ def update_session_history(session_id: str, role: str, content: str, user_id: st
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to update this session")
     db.sessions.update_one(
-        {"session_id": session_id},
+        {"_id": ObjectId(session_id)},  # Changed from session_id to _id
         {"$push": {"history": {
             "role": role,
             "content": content,
@@ -130,7 +128,7 @@ def update_session_history(session_id: str, role: str, content: str, user_id: st
 def get_recent_history(session_id: str, max_history: int, user_id: str = None, limit: int = 20, skip: int = 0) -> list:
     """Get paginated recent chat history with security check."""
     db = mongo_client.ai
-    session = db.sessions.find_one({"session_id": session_id})
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
     if user_id:
@@ -178,6 +176,6 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
         query["user_id"] = ObjectId(user_id)
     
     return list(db.sessions.find(query)
-                .sort(sort_by, sort_order)
-                .skip(skip)
+                .sort(sort_by, sort_order)                
+                .skip(skip)                
                 .limit(limit))

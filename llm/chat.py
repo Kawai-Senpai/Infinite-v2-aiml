@@ -33,7 +33,7 @@ def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
     if not agent:
         raise ValueError("Agent not found")
     
-    session = db.sessions.find_one({"session_id": session_id})
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
     
@@ -162,13 +162,13 @@ def handle_stream_response(session_id, response_stream):
                 full_response += content
         yield chunk
     
-    # Update history with complete message
+    # Update history with complete message using _id
     update_session_history(session_id, "assistant", full_response)
 
 def chat(
 
     agent_id: str,
-    session_id: str,
+    session_id: str,  # This is now expecting MongoDB's _id
     message: str,
     stream: bool = False,
     use_rag: bool = True
@@ -181,6 +181,12 @@ def chat(
     agent = db.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         raise ValueError("Agent not found")
+
+    # Verify session exists
+    session_db = mongo_client.ai.sessions
+    session = session_db.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
+    if not session:
+        raise ValueError("Session not found")
 
     # Parallel execution of tool analysis and memory analysis
     with ThreadPoolExecutor(max_workers=2) as executor:

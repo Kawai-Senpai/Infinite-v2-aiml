@@ -53,7 +53,7 @@ def create_agent(name,
 
     # Validate memory size
     if not isinstance(max_memory_size, int) or not 1 <= max_memory_size <= config.get("constraints.max_memory_size", 10):
-        raise ValueError("max_memory_size must be an integer between 1 and 10")
+        raise ValueError("max_memory_size must be an integer between 1 and 15")
 
     # Generate collection IDs instead of creating collections
     collection_ids = [str(ObjectId()) for _ in range(num_collections)]
