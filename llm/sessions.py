@@ -51,8 +51,8 @@ def delete_session(session_id: str, user_id: str = None):
     if result.deleted_count == 0:
         raise ValueError("Session not found")
 
-def get_session_history(session_id: str, user_id: str = None) -> list:
-    """Get chat history for a session with security check."""
+def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
+    """Get details of a single session with security check and paginated history."""
     db = mongo_client.ai
     session = db.sessions.find_one({"session_id": session_id})
     if not session:
@@ -61,7 +61,52 @@ def get_session_history(session_id: str, user_id: str = None) -> list:
         agent = db.agents.find_one({"_id": session["agent_id"]})
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
-    return session["history"]
+    
+    # Get full history and sort by timestamp descending
+    full_history = sorted(
+        session.get("history", []),
+        key=lambda x: x.get("timestamp", datetime.min),
+        reverse=True
+    )
+    total_messages = len(full_history)
+    
+    # Create a copy of the session document and modify the history
+    session_data = dict(session)
+    session_data["history"] = full_history[skip:skip + limit]
+    session_data["history_metadata"] = {
+        "total": total_messages,
+        "skip": skip,
+        "limit": limit
+    }
+    
+    return session_data
+
+def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> list:
+    """Get paginated chat history for a session with security check."""
+    db = mongo_client.ai
+    session = db.sessions.find_one({"session_id": session_id})
+    if not session:
+        raise ValueError("Session not found")
+    if user_id:
+        agent = db.agents.find_one({"_id": session["agent_id"]})
+        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
+            raise ValueError("Not authorized to view this session")
+    
+    # Sort history by timestamp descending
+    history = sorted(
+        session.get("history", []),
+        key=lambda x: x.get("timestamp", datetime.min),
+        reverse=True
+    )
+    total = len(history)
+    paginated_history = history[skip:skip + limit]
+    
+    return {
+        "history": paginated_history,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 def update_session_history(session_id: str, role: str, content: str, user_id: str = None):
     """Add message to session history with security check."""
@@ -82,8 +127,8 @@ def update_session_history(session_id: str, role: str, content: str, user_id: st
         }}}
     )
 
-def get_recent_history(session_id: str, max_history: int, user_id: str = None) -> list:
-    """Get recent chat history with security check."""
+def get_recent_history(session_id: str, max_history: int, user_id: str = None, limit: int = 20, skip: int = 0) -> list:
+    """Get paginated recent chat history with security check."""
     db = mongo_client.ai
     session = db.sessions.find_one({"session_id": session_id})
     if not session:
@@ -92,8 +137,23 @@ def get_recent_history(session_id: str, max_history: int, user_id: str = None) -
         agent = db.agents.find_one({"_id": session["agent_id"]})
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
-    history = session.get("history", [])
-    return history[-max_history:] if max_history > 0 else history
+    
+    # Sort history by timestamp descending and get most recent max_history messages
+    history = sorted(
+        session.get("history", []),
+        key=lambda x: x.get("timestamp", datetime.min),
+        reverse=True
+    )[:max_history]
+    
+    total = len(history)
+    paginated_history = history[skip:skip + limit]
+    
+    return {
+        "history": paginated_history,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
     """Get all sessions belonging to a user with pagination and sorting."""
