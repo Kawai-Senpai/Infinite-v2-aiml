@@ -36,4 +36,4 @@ async def status(request: Request):
         }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run("_server:app", host="localhost", port=8000, reload=True)
