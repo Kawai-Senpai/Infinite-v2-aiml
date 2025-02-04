@@ -1,19 +1,15 @@
 from duckduckgo_search import DDGS
 from ultraconfiguration import UltraConfig
 import os
-from .decision import query_finder
 
 #! Initialize ---------------------------------------------------------------
 config_path = os.path.join(os.path.dirname(__file__), "config.json")
 config = UltraConfig(config_path)
 
 #* Web search ---------------------------------------------------------------
-def web_search(message: str) -> str:
+def web_search(query: str) -> str:
     """Perform web search using DuckDuckGo"""
     try:
-        query = query_finder(message).get("query", "")
-        if not query:
-            return ""
         with DDGS() as ddgs:
             results = ddgs.text(query, max_results=config.get("max_results", 2))
             if not results:

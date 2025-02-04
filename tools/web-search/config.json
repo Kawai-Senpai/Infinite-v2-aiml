@@ -1,3 +1,6 @@
 {
-    "max_results": 2
+    "max_results": 2,
+    "models": {
+        "dicision": "gpt-4o"
+    }
 }
