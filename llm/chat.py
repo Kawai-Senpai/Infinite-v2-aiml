@@ -165,28 +165,48 @@ def handle_stream_response(session_id, response_stream):
     # Update history with complete message using _id
     update_session_history(session_id, "assistant", full_response)
 
+def verify_session_access(session_id: str, user_id: str = None) -> bool:
+    """Verify if user has access to the session"""
+    if not user_id:
+        return True
+        
+    db = mongo_client.ai
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        return False
+        
+    # Check if session belongs to user directly
+    if "user_id" in session:
+        return str(session["user_id"]) == user_id
+        
+    # If session doesn't have user_id, check agent ownership
+    agent = db.agents.find_one({"_id": session["agent_id"]})
+    if agent and "user_id" in agent:
+        return str(agent["user_id"]) == user_id
+        
+    return True
+
 def chat(
 
     agent_id: str,
     session_id: str,  # This is now expecting MongoDB's _id
     message: str,
     stream: bool = False,
-    use_rag: bool = True
+    use_rag: bool = True,
+    user_id: str = None
 
 ) -> Generator[str, None, None] | str:
     
     """Main chat function that handles both models and RAG"""
 
+    # Verify user access first
+    if not verify_session_access(session_id, user_id):
+        raise ValueError("Not authorized to access this session")
+
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         raise ValueError("Agent not found")
-
-    # Verify session exists
-    session_db = mongo_client.ai.sessions
-    session = session_db.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
-    if not session:
-        raise ValueError("Session not found")
 
     # Parallel execution of tool analysis and memory analysis
     with ThreadPoolExecutor(max_workers=2) as executor:
