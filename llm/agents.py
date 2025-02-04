@@ -5,6 +5,7 @@ from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 from database.chroma import delete_agent_documents
+import importlib  # added for dynamic tool import
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -42,10 +43,12 @@ def create_agent(name,
     if model not in config.get("supported.models." + model_provider, []):
         raise ValueError("Invalid model")
     
-    #tools must be one of the following
-    valid_tools = config.get("supported.tools", ["web-search"])
-    if not all(tool in valid_tools for tool in tools):
-        raise ValueError("Invalid tool")
+    # Validate tools dynamically
+    for tool in tools:
+        try:
+            importlib.import_module(f"tools.{tool}.main")
+        except ImportError as e:
+            raise ValueError(f"Invalid tool: {tool}") from e
 
     # Validate number of collections
     if not 1 <= num_collections <= config.get("constraints.max_num_collections", 4):

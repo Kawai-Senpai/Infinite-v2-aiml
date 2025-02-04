@@ -1,7 +1,9 @@
-from duckduckgo_search import DDGS
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
 from keys.keys import environment
+import importlib
+from llm.decision import analyze_tool_need
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -12,43 +14,57 @@ log = logger('chat_log',
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
 #* Executor ------------------------------------------------------------------
-def execute_tools(tools_list: list) -> str:
-    """Execute multiple tools and combine their responses"""
+def _execute_tool(tool, agent, message, history):
+    """Worker function to execute a single tool"""
+    try:
+        tool_module = importlib.import_module(f"tools.{tool}.main")
+        response = tool_module._execute(agent, message, history)
+        return {"tool": tool, "response": response}
+    except ImportError as e:
+        log.error("Could not import or use tool '%s': %s", tool, e)
+        return {"tool": tool, "response": f"Error: {str(e)}"}
+
+def execute_tools(agent, message, history):
+    """Execute multiple tools in parallel and combine their responses"""
+
+    enabled_tools = agent.get("tools", [])
+    # Add tool descriptions
+    updated_tools = []
+    for tool in enabled_tools:
+        try:
+            tool_module = importlib.import_module(f"tools.{tool}.main")
+            tool_item = {
+                "name": tool,
+                "description": getattr(tool_module, "_info", "")
+            }
+        except ImportError as e:
+            log.error("Could not import tool '%s' for description: %s", tool, e)
+            tool_item = {
+                "name": tool,
+                "description": ""
+            }
+        updated_tools.append(tool_item)
+    
+    response = analyze_tool_need(message, updated_tools)
+    tools_list = response.get("tools", [])
+
     if not tools_list:
         return ""
     
+    log.debug("Executing tools in parallel: %s", tools_list)
+    
+    max_workers = min(len(tools_list), config.get("constraints.max_parallel_tools", 5))
     responses = []
-    for tool in tools_list:
-        tool_name = tool["name"]
-        query = tool["query"]
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_tool = {
+            executor.submit(_execute_tool, tool, agent, message, history): tool 
+            for tool in tools_list
+        }
         
-        if tool_name == "web-search":
-            response = web_search(query)
-            responses.append({
-                "tool": tool_name,
-                "response": response
-            })
-        #TODO: Add more tool handlers here
+        for future in as_completed(future_to_tool):
+            result = future.result()
+            if result:
+                responses.append(result)
 
     return "\n\n".join([f"{r['tool']} response: {r['response']}" for r in responses])
-
-#* Tool Handlers -------------------------------------------------------------
-def web_search(query: str) -> str:
-    """Perform web search using DuckDuckGo"""
-    try:
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=config.get("constraints.max_search_results", 2))
-            if not results:
-                return "No search results found."
-            
-            formatted_results = []
-            for r in results:
-                formatted_results.append(
-                    f"Title: {r['title']}\n"
-                    f"URL: {r['href']}\n"
-                    f"Summary: {r['body']}\n"
-                )
-            
-            return "\n---\n".join(formatted_results)
-    except Exception as e:
-        return f"Error performing web search: {str(e)}"

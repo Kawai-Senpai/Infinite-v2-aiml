@@ -11,7 +11,7 @@ from database.chroma import search_documents
 from llm.sessions import update_session_history, get_recent_history
 from llm.tools import execute_tools  # Update import
 from concurrent.futures import ThreadPoolExecutor
-from llm.decision import analyze_tool_need, analyze_for_memory
+from llm.decision import analyze_for_memory
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -208,22 +208,24 @@ def chat(
     if not agent:
         raise ValueError("Agent not found")
 
+    # Get recent history and add system message
+    messages = get_recent_history(session_id, agent["max_history"])
+    if not isinstance(messages, list):
+        messages = []  # Ensure messages is a list
+
     # Parallel execution of tool analysis and memory analysis
     with ThreadPoolExecutor(max_workers=2) as executor:
-        tool_future = executor.submit(analyze_tool_need, message, agent["tools"])
+        log.debug("Analyzing tool need and memory storage")
+        log.debug("Agent tools: %s", agent["tools"])
+
+        tool_future = executor.submit(execute_tools, agent, message, messages)
         memory_future = executor.submit(analyze_for_memory, message)
         
-        tool_result = tool_future.result()
         memory_result = memory_future.result()
-
-    # Handle tool execution if needed
-    tool_response = ""
-    if tool_result.get("tools"):
-        tool_response = execute_tools(tool_result["tools"])
-
-    # Handle memory storage if needed
-    if memory_result["to_remember"]:
-        update_memory(agent_id, memory_result["to_remember"])
+        if memory_result["to_remember"]:
+            log.debug("Adding memory items: %s", memory_result["to_remember"])
+            update_memory(agent_id, memory_result["to_remember"])
+        tool_response = tool_future.result()
 
     # Get relevant context if RAG is enabled
     context_results = get_relevant_context(agent_id, message, session_id) if use_rag else []
@@ -233,11 +235,6 @@ def chat(
     formatted_context = format_context(context_results, memory_items)
     prompt = make_basic_prompt(agent["name"], agent["role"], agent["capabilities"], agent["rules"])
     system_message = format_system_message(prompt, formatted_context, tool_response)
-    
-    # Get recent history and add system message
-    messages = get_recent_history(session_id, agent["max_history"])
-    if not isinstance(messages, list):
-        messages = []  # Ensure messages is a list
     
     # Add system message and user message
     messages.extend([

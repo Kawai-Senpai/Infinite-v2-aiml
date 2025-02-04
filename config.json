@@ -31,7 +31,7 @@
     "constraints": {
         "max_num_collections": 4,
         "max_memory_size": 20,
-        "max_search_results": 2
+        "max_parallel_tools": 10
     },
     "caching": {
         "dir": "cache"
