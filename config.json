@@ -17,7 +17,7 @@
     },
     "models": {
         "embedding" : "text-embedding-3-small",
-        "dicision": "o3-mini"
+        "dicision": "gpt-4o"
     },
     "supported":{
         "model_providers": ["openai", "cohere"],

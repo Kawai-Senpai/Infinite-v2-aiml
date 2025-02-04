@@ -50,9 +50,15 @@ def log_exception_with_request(exception, function, request):
     try:
         log.error(exception)
         function_name = function.__name__
-        # Get the traceback
         tb = traceback.format_exc()
         
+        # SafeFastAPI request handling
+        request_info = {
+            "url": str(request.url) if request and hasattr(request, 'url') else "N/A",
+            "method": request.method if request and hasattr(request, 'method') else "N/A",
+            "headers": dict(request.headers) if request and hasattr(request, 'headers') else {}
+        }
+
         # Log to MongoDB
         error_entry = {
             "api": "AIML",
@@ -60,12 +66,7 @@ def log_exception_with_request(exception, function, request):
             "exception": str(exception),
             "traceback": tb,
             "timestamp": datetime.now(timezone.utc),
-            "request": {
-                "url": request.url,
-                "method": request.method,
-                "headers": dict(request.headers),
-                "body": request.get_data(as_text=True)
-            }
+            "request": request_info
         }
         collection.insert_one(error_entry)
         
@@ -75,16 +76,15 @@ def log_exception_with_request(exception, function, request):
         with open(csv_file_path, mode='a', newline='') as file:
             writer = csv.writer(file)
             if not file_exists:
-                writer.writerow(["timestamp", "function", "exception", "traceback", "url", "method", "headers", "body"])
+                writer.writerow(["timestamp", "function", "exception", "traceback", "url", "method", "headers"])
             writer.writerow([
                 datetime.now(timezone.utc), 
                 function_name, 
                 str(exception), 
                 tb, 
-                request.url, 
+                str(request.url), 
                 request.method, 
-                dict(request.headers), 
-                request.get_data(as_text=True)
+                str(dict(request.headers))
             ])
     except Exception as e:
         log.error(e)

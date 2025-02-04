@@ -24,3 +24,6 @@ aws_secret = os.getenv("AWS_SECRET")
 
 #* OpenAI keys ----------------------------------------------
 openai_api_key = os.getenv("OPENAI_API_KEY")
+
+#* Cohere keys ----------------------------------------------
+cohere_api_key = os.getenv("COHERE_API_KEY")

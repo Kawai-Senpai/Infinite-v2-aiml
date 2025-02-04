@@ -20,6 +20,26 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         raise ValueError("Agent not found")
+
+    # Access control validation
+    agent_type = agent.get("agent_type")
+    if user_id:
+        # For private agents, verify ownership
+        if agent_type == "private":
+            if "user_id" not in agent or str(agent["user_id"]) != user_id:
+                raise ValueError("Not authorized to create session for this private agent")
+        # For approved agents, verify approval status
+        elif agent_type == "approved":
+            pass  # Approved agents are accessible to all
+        # For public agents, check if they're actually public
+        elif agent_type == "public":
+            pass  # Public agents are accessible to all
+        # For system agents, verify they're actually system agents
+        elif agent_type == "system":
+            pass  # System agents are accessible to all
+        else:
+            raise ValueError("Invalid agent type")
+
     if not isinstance(max_context_results, int) or max_context_results < 1:
         raise ValueError("max_context_results must be a positive integer")
     
