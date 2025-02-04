@@ -6,7 +6,8 @@ from llm.agents import (
     get_all_approved_agents,
     get_all_system_agents,
     get_all_agents_for_user,
-    get_agent  # added import for get_agent
+    get_agent,
+    get_available_tools
 )
 from errors.error_logger import log_exception_with_request
 
@@ -122,4 +123,16 @@ async def get_agent_details(agent_id: str, user_id: str = None, request: Request
         raise HTTPException(status_code=code, detail=str(e))
     except Exception as e:
         log_exception_with_request(e, get_agent_details, request)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@router.get("/tools")
+async def list_available_tools(request: Request):
+    """Get a list of all available tools and their descriptions"""
+    try:
+        tools = get_available_tools()
+        return {"tools": tools}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log_exception_with_request(e, list_available_tools, request)
         raise HTTPException(status_code=500, detail="Internal Server Error")

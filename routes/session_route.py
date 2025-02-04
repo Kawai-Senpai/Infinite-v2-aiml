@@ -89,7 +89,6 @@ async def update_history_endpoint(
 async def get_recent_history_endpoint(
     session_id: str,
     request: Request,
-    max_history: int,
     user_id: str = None,
     limit: int = 20,
     skip: int = 0
@@ -97,7 +96,6 @@ async def get_recent_history_endpoint(
     try:
         history = get_recent_history(
             session_id, 
-            max_history, 
             user_id, 
             limit=limit, 
             skip=skip

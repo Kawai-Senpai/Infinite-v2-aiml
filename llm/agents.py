@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from database.chroma import delete_agent_documents
 import importlib  # added for dynamic tool import
+import importlib.util
+from pathlib import Path
+import os
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -148,3 +151,39 @@ def get_agent(agent_id, user_id=None):
     if user_id and ("user_id" in agent and str(agent["user_id"]) != user_id):
         raise ValueError("Not authorized to view this agent")
     return agent
+
+def get_available_tools():
+    """Return a list of all available tools and their descriptions"""
+    available_tools = []
+    
+    # Get the directory where the tools package is located
+    tools_dir = Path(os.path.dirname(__file__)).parent / "tools"
+    
+    # Check each directory in the tools folder
+    try:
+        for tool_path in tools_dir.iterdir():
+            if not tool_path.is_dir() or tool_path.name.startswith('__'):
+                continue
+                
+            try:
+                tool_name = tool_path.name
+                
+                # Try to import the tool's main module
+                tool_module = importlib.import_module(f"tools.{tool_name}.main")
+                
+                # Get tool info if available, otherwise use empty string
+                tool_info = {
+                    "name": tool_name,
+                    "description": getattr(tool_module, "_info", "")
+                }
+                available_tools.append(tool_info)
+                
+            except ImportError as e:
+                log.warning(f"Could not import tool {tool_name}: {str(e)}")
+                continue
+                
+    except Exception as e:
+        log.error(f"Error scanning tools directory: {str(e)}")
+        raise ValueError("Could not fetch available tools")
+
+    return available_tools
