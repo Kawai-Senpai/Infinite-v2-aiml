@@ -6,6 +6,8 @@
 - [Technical Specifications 📊](#technical-specifications)
 - [Environment Configuration 🛠️](#environment-configuration)
 - [Project Structure 🗂️](#project-structure)
+- [Tool Development Guidelines](#tool-development-guidelines)
+- [API Documentation](#api-documentation)
 
 ---
 
