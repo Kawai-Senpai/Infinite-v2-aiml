@@ -12,6 +12,7 @@ Message: "{message}"
 {example}
 
 Rules:
+- It is not mandetory to use all the search queries. If nothing is needed, return empty array.
 - Only include the search query under "query" that is needed to respond to the message.
 - The search query should be relevant to the message. And help to find the information that the user is looking for.
 """
