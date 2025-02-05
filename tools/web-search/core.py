@@ -11,21 +11,22 @@ config = UltraConfig(config_path)
 def web_search(message: str) -> str:
     """Perform web search using DuckDuckGo"""
     try:
-        query = query_finder(message).get("query", "")
-        if not query:
+        querys = query_finder(message).get("query", "")
+        if not querys:
             return ""
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=config.get("max_results", 2))
-            if not results:
-                return "No search results found."
-            
-            formatted_results = []
-            for r in results:
-                formatted_results.append(
-                    f"Title: {r['title']}\n"
-                    f"URL: {r['href']}\n"
-                    f"Summary: {r['body']}\n"
-                )
-            return "\n---\n".join(formatted_results)
+        
+        formatted_results = []
+        for query in querys:
+            with DDGS() as ddgs:
+                results = ddgs.text(query, max_results=config.get("max_results", 2))
+                if not results:
+                    continue
+                for r in results:
+                    formatted_results.append(
+                        f"Title: {r['title']}\n"
+                        f"URL: {r['href']}\n"
+                        f"Summary: {r['body']}\n"
+                    )
+        return "\n---\n".join(formatted_results) if formatted_results else ""
     except Exception as e:
         return ""

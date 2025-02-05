@@ -22,6 +22,6 @@ def query_finder(message: str) -> dict:
     )
     content = response.choices[0].message.parsed
     if not content:
-        return {"query": ""}
+        return {"query": []}
     return extract_json_content(content)
 

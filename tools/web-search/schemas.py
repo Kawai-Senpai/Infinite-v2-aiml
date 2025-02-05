@@ -2,4 +2,4 @@ from pydantic import BaseModel
 
 #! Tool Analysis ---------------------------------------------------------------
 class ToolQuery(BaseModel):
-    query: str
+    query: list[str]

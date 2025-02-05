@@ -3,7 +3,7 @@ def make_query(message: str) -> str:
     """Format prompt for tool analysis"""
     example = """Your output should look like this (example):
 {
-    "query": "search query"
+    "query": ["search query1", "search query2"]
 }"""
     return f"""This is a user message. come up with a search query based on the message. so that the search query can be used to search the web.
 
