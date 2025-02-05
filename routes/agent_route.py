@@ -13,7 +13,6 @@ from errors.error_logger import log_exception_with_request
 
 router = APIRouter()
 
-# Removed CreateAgentBody model
 @router.post("/create")
 async def create_agent_endpoint(
     request: Request,
@@ -37,24 +36,39 @@ async def create_agent_endpoint(
             user_id=user_id,
             agent_type=agent_type
         )
-        return {"agent_id": str(agent_id)}
+        return {
+            "message": "Agent created successfully.",
+            "agent_id": str(agent_id)
+        }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail={
+            "message": "Failed to create agent.",
+            "error": str(e)
+        })
     except Exception as e:
         log_exception_with_request(e, create_agent_endpoint, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while creating agent.",
+            "error": str(e)
+        })
 
 @router.delete("/delete/{agent_id}")
 async def delete_agent_endpoint(agent_id: str, user_id: str = None, request: Request = None):
     try:
-        delete_agent(agent_id, user_id)  # pass user_id to enforce delete security
-        return {"message": f"Agent {agent_id} deleted successfully."}
+        delete_agent(agent_id, user_id)
+        return {"message": f"Agent '{agent_id}' deleted successfully."}
     except ValueError as e:
         code = 403 if "Not authorized" in str(e) else 404
-        raise HTTPException(status_code=code, detail=str(e))
+        raise HTTPException(status_code=code, detail={
+            "message": "Failed to delete agent.",
+            "error": str(e)
+        })
     except Exception as e:
         log_exception_with_request(e, delete_agent_endpoint, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while deleting agent.",
+            "error": str(e)
+        })
 
 @router.get("/get_public")
 async def list_public_agents(
@@ -65,10 +79,17 @@ async def list_public_agents(
     sort_order: int = -1
 ):
     try:
-        return get_all_public_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_public_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        return {
+            "message": "Public agents retrieved successfully.",
+            "data": agents
+        }
     except Exception as e:
         log_exception_with_request(e, list_public_agents, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving public agents.",
+            "error": str(e)
+        })
 
 @router.get("/get_approved")
 async def list_approved_agents(
@@ -79,10 +100,17 @@ async def list_approved_agents(
     sort_order: int = -1
 ):
     try:
-        return get_all_approved_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_approved_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        return {
+            "message": "Approved agents retrieved successfully.",
+            "data": agents
+        }
     except Exception as e:
         log_exception_with_request(e, list_approved_agents, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving approved agents.",
+            "error": str(e)
+        })
 
 @router.get("/get_system")
 async def list_system_agents(
@@ -93,10 +121,17 @@ async def list_system_agents(
     sort_order: int = -1
 ):
     try:
-        return get_all_system_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_system_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        return {
+            "message": "System agents retrieved successfully.",
+            "data": agents
+        }
     except Exception as e:
         log_exception_with_request(e, list_system_agents, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving system agents.",
+            "error": str(e)
+        })
 
 @router.get("/get_user/{user_id}")
 async def list_user_agents(
@@ -108,31 +143,55 @@ async def list_user_agents(
     sort_order: int = -1
 ):
     try:
-        return get_all_agents_for_user(user_id, limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_agents_for_user(user_id, limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        return {
+            "message": "User agents retrieved successfully.",
+            "data": agents
+        }
     except Exception as e:
         log_exception_with_request(e, list_user_agents, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving user agents.",
+            "error": str(e)
+        })
 
 @router.get("/get/{agent_id}")
 async def get_agent_details(agent_id: str, user_id: str = None, request: Request = None):
     try:
-        agent = get_agent(agent_id, user_id)  # pass user_id to enforce security inside get_agent
-        return agent
+        agent = get_agent(agent_id, user_id)
+        return {
+            "message": "Agent details retrieved successfully.",
+            "data": agent
+        }
     except ValueError as e:
         code = 403 if "Not authorized" in str(e) else 404
-        raise HTTPException(status_code=code, detail=str(e))
+        raise HTTPException(status_code=code, detail={
+            "message": "Failed to retrieve agent details.",
+            "error": str(e)
+        })
     except Exception as e:
         log_exception_with_request(e, get_agent_details, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving agent details.",
+            "error": str(e)
+        })
 
 @router.get("/tools")
 async def list_available_tools(request: Request):
-    """Get a list of all available tools and their descriptions"""
     try:
         tools = get_available_tools()
-        return {"tools": tools}
+        return {
+            "message": "Available tools retrieved successfully.",
+            "data": tools
+        }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail={
+            "message": "Failed to retrieve available tools.",
+            "error": str(e)
+        })
     except Exception as e:
         log_exception_with_request(e, list_available_tools, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving available tools.",
+            "error": str(e)
+        })

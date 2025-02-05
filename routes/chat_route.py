@@ -20,7 +20,7 @@ async def chat_endpoint(
         message = body.get("message")
         if not message:
             raise ValueError("Message is required")
-
+        
         if stream:
             return StreamingResponse(
                 chat(
@@ -34,7 +34,7 @@ async def chat_endpoint(
                 media_type='text/event-stream'
             )
         else:
-            response = chat(  # Removed await here
+            response = chat(
                 agent_id=agent_id,
                 session_id=session_id,
                 message=message,
@@ -42,11 +42,19 @@ async def chat_endpoint(
                 use_rag=use_rag,
                 user_id=user_id
             )
-            return {"response": response}
-
+            return {
+                "message": "Chat completed successfully.",
+                "response": response
+            }
     except ValueError as e:
         code = 403 if "Not authorized" in str(e) else 400
-        raise HTTPException(status_code=code, detail=str(e))
+        raise HTTPException(status_code=code, detail={
+            "message": "Chat request failed.",
+            "error": str(e)
+        })
     except Exception as e:
         log_exception_with_request(e, chat_endpoint, request)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error during chat.",
+            "error": str(e)
+        })
