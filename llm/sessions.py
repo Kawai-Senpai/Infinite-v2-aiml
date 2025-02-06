@@ -50,7 +50,7 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
         "created_at": datetime.now(timezone.utc)
     }
     if user_id:
-        session_doc["user_id"] = ObjectId(user_id)
+        session_doc["user_id"] = str(user_id)  # Store as string
     
     result = db.sessions.insert_one(session_doc)
     return str(result.inserted_id)  # Return MongoDB's _id directly
@@ -176,7 +176,7 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
 def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
     """Get all sessions belonging to a user with pagination and sorting."""
     db = mongo_client.ai
-    return list(db.sessions.find({"user_id": ObjectId(user_id)})
+    return list(db.sessions.find({"user_id": str(user_id)})  # Query with string
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
@@ -193,7 +193,7 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
     
     query = {"agent_id": ObjectId(agent_id)}
     if user_id:
-        query["user_id"] = ObjectId(user_id)
+        query["user_id"] = str(user_id)  # Query with string
     
     return list(db.sessions.find(query)
                 .sort(sort_by, sort_order)                

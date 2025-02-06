@@ -179,12 +179,12 @@ def verify_session_access(session_id: str, user_id: str = None) -> bool:
         
     # Check if session belongs to user directly
     if "user_id" in session:
-        return str(session["user_id"]) == user_id
+        return session["user_id"] == user_id  # Direct string comparison
         
     # If session doesn't have user_id, check agent ownership
     agent = db.agents.find_one({"_id": session["agent_id"]})
     if agent and "user_id" in agent:
-        return str(agent["user_id"]) == user_id
+        return agent["user_id"] == user_id  # Direct string comparison
         
     return True
 

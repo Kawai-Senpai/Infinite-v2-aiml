@@ -29,7 +29,7 @@ def create_agent(name,
                 tools=[],
                 num_collections=1,
                 max_memory_size=1,
-                user_id=None,
+                user_id: str = None,
                 agent_type="private"):  # Add agent_type parameter
     """Create new agent with collection IDs"""
 
@@ -84,7 +84,7 @@ def create_agent(name,
     }
     
     if user_id:
-        agent_data["user_id"] = ObjectId(user_id)
+        agent_data["user_id"] = str(user_id)  # Store as string
     
     # Updated: insert directly into the agents collection
     agent = db.insert_one(agent_data)
@@ -98,7 +98,7 @@ def delete_agent(agent_id, user_id=None):
     if not agent:
         raise ValueError("Agent not found")
     
-    if user_id and ("user_id" not in agent or str(agent["user_id"]) != user_id):
+    if user_id and ("user_id" not in agent or agent["user_id"] != user_id):  # Direct string comparison
         raise ValueError("Not authorized to delete this agent")
     
     # Delete all documents from Chroma
@@ -110,10 +110,10 @@ def delete_agent(agent_id, user_id=None):
     # Delete agent record
     db.agents.delete_one({"_id": ObjectId(agent_id)})
 
-def get_all_agents_for_user(user_id, limit=20, skip=0, sort_by="created_at", sort_order=-1):
+def get_all_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at", sort_order=-1):
     """Return paginated and sorted list of agents that belong to a specific user."""
     db = mongo_client.ai
-    return list(db.agents.find({"user_id": ObjectId(user_id)})
+    return list(db.agents.find({"user_id": str(user_id)})  # Query with string
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
@@ -148,7 +148,7 @@ def get_agent(agent_id, user_id=None):
     agent = db.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         raise ValueError("Agent not found")
-    if user_id and ("user_id" in agent and str(agent["user_id"]) != user_id):
+    if user_id and ("user_id" in agent and agent["user_id"] != user_id):  # Direct string comparison
         raise ValueError("Not authorized to view this agent")
     return agent
 
