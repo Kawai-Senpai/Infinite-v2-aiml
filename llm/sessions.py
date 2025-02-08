@@ -4,6 +4,7 @@ from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 from keys.keys import environment
+from utilities.save_json import convert_objectid_to_str  # NEW IMPORT
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -90,6 +91,9 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     
     # Create a copy of the session document and modify the history
     session_data = dict(session)
+    session_data["_id"] = convert_objectid_to_str(session_data["_id"])  # CONVERT _id
+    if "agent_id" in session_data:
+        session_data["agent_id"] = convert_objectid_to_str(session_data["agent_id"])
     session_data["history"] = full_history[skip:skip + limit]
     session_data["history_metadata"] = {
         "total": total_messages,
@@ -99,7 +103,7 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     
     return session_data
 
-def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> list:
+def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
     """Get paginated chat history for a session with security check."""
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
@@ -110,6 +114,9 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
     
+    # Convert agent_id field if present
+    if "agent_id" in session:
+        session["agent_id"] = convert_objectid_to_str(session["agent_id"])
     # Sort history by timestamp descending
     history = sorted(
         session.get("history", []),
@@ -145,7 +152,7 @@ def update_session_history(session_id: str, role: str, content: str, user_id: st
         }}}
     )
 
-def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> list:
+def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
     """Get paginated recent chat history with security check."""
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
@@ -156,6 +163,9 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
     
+    # Convert agent_id field if present
+    if "agent_id" in session:
+        session["agent_id"] = convert_objectid_to_str(session["agent_id"])
     # Sort history by timestamp descending
     history = sorted(
         session.get("history", []),
@@ -176,10 +186,15 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
 def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
     """Get all sessions belonging to a user with pagination and sorting."""
     db = mongo_client.ai
-    return list(db.sessions.find({"user_id": str(user_id)})  # Query with string
+    sessions = list(db.sessions.find({"user_id": str(user_id)})  # Query with string
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
+    for s in sessions:
+        s["_id"] = convert_objectid_to_str(s["_id"])  # CONVERT _id
+        if "agent_id" in s:
+            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+    return sessions
 
 def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
     """Get all sessions for a specific agent with optional user security check."""
@@ -195,7 +210,12 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
     if user_id:
         query["user_id"] = str(user_id)  # Query with string
     
-    return list(db.sessions.find(query)
+    sessions = list(db.sessions.find(query)
                 .sort(sort_by, sort_order)                
                 .skip(skip)                
                 .limit(limit))
+    for s in sessions:
+        s["_id"] = convert_objectid_to_str(s["_id"])  # CONVERT _id
+        if "agent_id" in s:
+            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+    return sessions

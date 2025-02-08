@@ -9,6 +9,7 @@ import importlib  # added for dynamic tool import
 import importlib.util
 from pathlib import Path
 import os
+from utilities.save_json import convert_objectid_to_str
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -113,10 +114,29 @@ def delete_agent(agent_id, user_id=None):
 def get_all_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at", sort_order=-1):
     """Return paginated and sorted list of agents that belong to a specific user."""
     db = mongo_client.ai
-    return list(db.agents.find({"user_id": str(user_id)})  # Query with string
+    agents = list(db.agents.find({"user_id": str(user_id)}).sort(sort_by, sort_order).skip(skip).limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+    return agents
+
+def get_all_nonprivate_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of agents that belong to a specific user, excluding private agents."""
+    db = mongo_client.ai
+    agents = list(db.agents.find({"user_id": str(user_id), "agent_type": {"$ne": "private"}})
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+    return agents
 
 def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
     """Return paginated and sorted list of public agents."""
@@ -150,6 +170,11 @@ def get_agent(agent_id, user_id=None):
         raise ValueError("Agent not found")
     if user_id and ("user_id" in agent and agent["user_id"] != user_id):  # Direct string comparison
         raise ValueError("Not authorized to view this agent")
+    agent["_id"] = convert_objectid_to_str(agent["_id"])
+    if "created_at" in agent:
+        agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+    if "updated_at" in agent:
+        agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
     return agent
 
 def get_available_tools():

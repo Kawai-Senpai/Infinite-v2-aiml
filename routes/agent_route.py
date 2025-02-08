@@ -7,7 +7,8 @@ from llm.agents import (
     get_all_system_agents,
     get_all_agents_for_user,
     get_agent,
-    get_available_tools
+    get_available_tools,
+    get_all_nonprivate_agents_for_user
 )
 from errors.error_logger import log_exception_with_request
 
@@ -152,6 +153,28 @@ async def list_user_agents(
         log_exception_with_request(e, list_user_agents, request)
         raise HTTPException(status_code=500, detail={
             "message": "Internal Server Error while retrieving user agents.",
+            "error": str(e)
+        })
+
+@router.get("/get_user_nonprivate/{user_id}")
+async def list_user_nonprivate_agents(
+    user_id: str, 
+    request: Request, 
+    limit: int = 20, 
+    skip: int = 0, 
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
+    try:
+        agents = get_all_nonprivate_agents_for_user(user_id, limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        return {
+            "message": "User non-private agents retrieved successfully.",
+            "data": agents
+        }
+    except Exception as e:
+        log_exception_with_request(e, list_user_nonprivate_agents, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving user non-private agents.",
             "error": str(e)
         })
 
