@@ -7,7 +7,8 @@
     },
     "mongo": {
         "structure": {
-            "ai": ["agents", "files"]
+            "ai": ["agents", "files", "sessions"],
+            "logs": ["error"]
         }
     },
     "chroma": {
@@ -16,7 +17,7 @@
     },
     "models": {
         "embedding" : "text-embedding-3-small",
-        "dicision": "o3-mini"
+        "dicision": "gpt-4o"
     },
     "supported":{
         "model_providers": ["openai", "cohere"],
@@ -29,8 +30,8 @@
     },
     "constraints": {
         "max_num_collections": 4,
-        "max_memory_size": 10,
-        "max_search_results": 2
+        "max_memory_size": 20,
+        "max_parallel_tools": 10
     },
     "caching": {
         "dir": "cache"

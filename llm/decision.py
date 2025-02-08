@@ -26,6 +26,7 @@ def analyze_tool_need(message: str, available_tools: list) -> dict:
         response_format=ToolAnalysisSchema
     )
     content = response.choices[0].message.parsed
+    log.debug("Tool analysis response: %s", content)
     if not content:
         return {"tools": []}
     return extract_json_content(content)

@@ -21,3 +21,9 @@ chroma_port = os.getenv("CHROMA_PORT")
 #* Aws keys -------------------------------------------------
 aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
 aws_secret = os.getenv("AWS_SECRET")
+
+#* OpenAI keys ----------------------------------------------
+openai_api_key = os.getenv("OPENAI_API_KEY")
+
+#* Cohere keys ----------------------------------------------
+cohere_api_key = os.getenv("COHERE_API_KEY")

@@ -1,9 +1,17 @@
-
 import json
 import numpy as np
 import re
 from datetime import datetime
+from bson import ObjectId  # Import ObjectId if not already imported
 from pydantic import BaseModel
+
+def convert_objectid_to_str(obj):
+    """Convert ObjectId and datetime objects to strings."""
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return obj
 
 def convert_keys_to_str(obj):
     """Recursively convert keys in a dictionary to strings."""

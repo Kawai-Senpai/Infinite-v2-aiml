@@ -35,7 +35,7 @@ def pingtest():
 #* Ensure required collections exist ------------------------------------------
 def create_collections():
     """Create shared documents collection if it doesn't exist"""
-    all_collections = [col.name for col in config.get("chroma.structure", [])]
+    all_collections = [col for col in config.get("chroma.structure", [])]
     chroma_collections = [col.name for col in client.list_collections()]
     log.info(f"Existing collections: {chroma_collections}")
     for collection in all_collections:

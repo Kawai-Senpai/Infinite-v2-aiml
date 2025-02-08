@@ -1,11 +1,15 @@
 from database.mongo import client as mongo_client
-from database.chroma import client as chroma_client
 from keys.keys import environment
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 from database.chroma import delete_agent_documents
+import importlib  # added for dynamic tool import
+import importlib.util
+from pathlib import Path
+import os
+from utilities.save_json import convert_objectid_to_str
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -26,7 +30,7 @@ def create_agent(name,
                 tools=[],
                 num_collections=1,
                 max_memory_size=1,
-                user_id=None,
+                user_id: str = None,
                 agent_type="private"):  # Add agent_type parameter
     """Create new agent with collection IDs"""
 
@@ -43,10 +47,12 @@ def create_agent(name,
     if model not in config.get("supported.models." + model_provider, []):
         raise ValueError("Invalid model")
     
-    #tools must be one of the following
-    valid_tools = config.get("supported.tools", ["web-search"])
-    if not all(tool in valid_tools for tool in tools):
-        raise ValueError("Invalid tool")
+    # Validate tools dynamically
+    for tool in tools:
+        try:
+            importlib.import_module(f"tools.{tool}.main")
+        except ImportError as e:
+            raise ValueError(f"Invalid tool: {tool}") from e
 
     # Validate number of collections
     if not 1 <= num_collections <= config.get("constraints.max_num_collections", 4):
@@ -54,7 +60,7 @@ def create_agent(name,
 
     # Validate memory size
     if not isinstance(max_memory_size, int) or not 1 <= max_memory_size <= config.get("constraints.max_memory_size", 10):
-        raise ValueError("max_memory_size must be an integer between 1 and 10")
+        raise ValueError("max_memory_size must be an integer between 1 and 15")
 
     # Generate collection IDs instead of creating collections
     collection_ids = [str(ObjectId()) for _ in range(num_collections)]
@@ -79,19 +85,22 @@ def create_agent(name,
     }
     
     if user_id:
-        agent_data["user_id"] = user_id
+        agent_data["user_id"] = str(user_id)  # Store as string
     
     # Updated: insert directly into the agents collection
     agent = db.insert_one(agent_data)
     return agent.inserted_id
 
-def delete_agent(agent_id):
-    """Completely remove an agent and its data"""
+def delete_agent(agent_id, user_id=None):
+    """Completely remove an agent and its data; if user_id is given, only allow deletion if it matches."""
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     
     if not agent:
         raise ValueError("Agent not found")
+    
+    if user_id and ("user_id" not in agent or agent["user_id"] != user_id):  # Direct string comparison
+        raise ValueError("Not authorized to delete this agent")
     
     # Delete all documents from Chroma
     delete_agent_documents(agent_id)
@@ -102,22 +111,104 @@ def delete_agent(agent_id):
     # Delete agent record
     db.agents.delete_one({"_id": ObjectId(agent_id)})
 
-def get_all_agents_for_user(user_id):
-    """Return all agents that belong to a specific user."""
+def get_all_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of agents that belong to a specific user."""
     db = mongo_client.ai
-    return list(db.agents.find({"user_id": str(user_id)}))
+    agents = list(db.agents.find({"user_id": str(user_id)}).sort(sort_by, sort_order).skip(skip).limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+    return agents
 
-def get_all_public_agents():
-    """Return all agents with agent_type='public'."""
+def get_all_nonprivate_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of agents that belong to a specific user, excluding private agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "public"}))
+    agents = list(db.agents.find({"user_id": str(user_id), "agent_type": {"$ne": "private"}})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+    return agents
 
-def get_all_approved_agents():
-    """Return all agents with agent_type='approved'."""
+def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of public agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "approved"}))
+    return list(db.agents.find({"agent_type": "public"})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
 
-def get_all_system_agents():
-    """Return all agents with agent_type='system'."""
+def get_all_approved_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of approved agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "system"}))
+    return list(db.agents.find({"agent_type": "approved"})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
+
+def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+    """Return paginated and sorted list of system agents."""
+    db = mongo_client.ai
+    return list(db.agents.find({"agent_type": "system"})
+                .sort(sort_by, sort_order)
+                .skip(skip)
+                .limit(limit))
+
+def get_agent(agent_id, user_id=None):
+    """Return details of a single agent by agent_id; if user_id is given, restrict access to agents owned by that user."""
+    db = mongo_client.ai.agents
+    agent = db.find_one({"_id": ObjectId(agent_id)})
+    if not agent:
+        raise ValueError("Agent not found")
+    if user_id and ("user_id" in agent and agent["user_id"] != user_id):  # Direct string comparison
+        raise ValueError("Not authorized to view this agent")
+    agent["_id"] = convert_objectid_to_str(agent["_id"])
+    if "created_at" in agent:
+        agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+    if "updated_at" in agent:
+        agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+    return agent
+
+def get_available_tools():
+    """Return a list of all available tools and their descriptions"""
+    available_tools = []
+    
+    # Get the directory where the tools package is located
+    tools_dir = Path(os.path.dirname(__file__)).parent / "tools"
+    
+    # Check each directory in the tools folder
+    try:
+        for tool_path in tools_dir.iterdir():
+            if not tool_path.is_dir() or tool_path.name.startswith('__'):
+                continue
+                
+            try:
+                tool_name = tool_path.name
+                
+                # Try to import the tool's main module
+                tool_module = importlib.import_module(f"tools.{tool_name}.main")
+                
+                # Get tool info if available, otherwise use empty string
+                tool_info = {
+                    "name": tool_name,
+                    "description": getattr(tool_module, "_info", "")
+                }
+                available_tools.append(tool_info)
+                
+            except ImportError as e:
+                log.warning(f"Could not import tool {tool_name}: {str(e)}")
+                continue
+                
+    except Exception as e:
+        log.error(f"Error scanning tools directory: {str(e)}")
+        raise ValueError("Could not fetch available tools")
+
+    return available_tools

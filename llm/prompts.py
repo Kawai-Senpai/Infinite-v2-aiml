@@ -31,34 +31,33 @@ def format_context(context_results: list, memory: list) -> str:
             memory_str += f"- {m}\n"
     else:
         memory_str = ""
-
-    context_str = "Here are some relevant information that might help:\n\n"
-    for result in context_results:
-        if result["matches"]:
-            for match in result["matches"]:
-                context_str += f"- {match['document']}\n"
+    
+    if context_results:
+        context_str = "Here are some relevant information that might help:\n\n"
+        for result in context_results:
+            if result["matches"]:
+                for match in result["matches"]:
+                    context_str += f"- {match['document']}\n"
+    else:
+        context_str = ""
 
     return memory_str + context_str
 
 def make_tool_analysis_prompt(message: str, available_tools: list) -> str:
     """Format prompt for tool analysis"""
-    tools_str = ", ".join(available_tools)
+    tools_str = str(available_tools)
     example = """Your output should look like this (example):
 {
-    "tools": [
-        {
-            "name": "web-search",
-            "query": "search query"
-        }
-    ]
+    "tools": ["web-search", "tool_name2"]
 }"""
-    return f"""Analyze if this user message requires any tools. Available tools: {tools_str}
+    return f"""This is a user message. Analyze if this user message requires any tools. Available tools: {tools_str}
 
 Message: "{message}"
 
 {example}
 
 Rules:
+- Only include the tool names under "tools" that are needed to respond to the message.
 - If no tools are needed, return empty array. You can use multiple tools if needed.
 - Only use tools that are available to you. Do not use any other tools.
 - It is not necessary to use a tool for every message. Only use a tool if it is truly needed.

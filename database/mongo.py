@@ -11,10 +11,7 @@ log = logger('mongo_log',
             write_to_file=config.get("logging.write_to_file", False), 
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
-# Create the mongo client
-client = MongoClient(mongo_uri, 
-                    tls=True, 
-                    tlsAllowInvalidCertificates=True)
+client = MongoClient(mongo_uri)
 
 #! MongoDB functions ---------------------------------------------------------
 #* Check if MongoDB connection is successful ---------------------------------
@@ -93,8 +90,7 @@ def check_mongo_structure(verbose=True):
                 all_ok = False
                 continue
             
-            if verbose:
+            if verbose:                
                 log.success(f"Collection '{collection_name}' exists")
-
     return all_ok
 
