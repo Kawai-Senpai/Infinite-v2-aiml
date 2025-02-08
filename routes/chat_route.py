@@ -18,8 +18,9 @@ async def chat_endpoint(
 ):
     try:
         message = body.get("message")
-        if not message:
-            raise ValueError("Message is required")
+        # New check for empty or whitespace-only message
+        if not message or not message.strip():
+            raise ValueError("Message is required and cannot be empty")
         
         if stream:
             return StreamingResponse(
