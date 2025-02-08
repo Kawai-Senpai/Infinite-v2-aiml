@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Body
 from llm.agents import (
     create_agent,
     delete_agent,
+    update_agent,  # Add this import
     get_all_public_agents,
     get_all_approved_agents,
     get_all_system_agents,
@@ -68,6 +69,36 @@ async def delete_agent_endpoint(agent_id: str, user_id: str = None, request: Req
         log_exception_with_request(e, delete_agent_endpoint, request)
         raise HTTPException(status_code=500, detail={
             "message": "Internal Server Error while deleting agent.",
+            "error": str(e)
+        })
+
+@router.put("/update/{agent_id}")
+async def update_agent_endpoint(
+    agent_id: str,
+    user_id: str = None,
+    request: Request = None,
+    body: dict = Body(...)
+):
+    try:
+        success = update_agent(
+            agent_id=agent_id,
+            user_id=user_id,
+            **body
+        )
+        return {
+            "message": "Agent updated successfully.",
+            "success": success
+        }
+    except ValueError as e:
+        code = 403 if "Not authorized" in str(e) else 404
+        raise HTTPException(status_code=code, detail={
+            "message": "Failed to update agent.",
+            "error": str(e)
+        })
+    except Exception as e:
+        log_exception_with_request(e, update_agent_endpoint, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while updating agent.",
             "error": str(e)
         })
 

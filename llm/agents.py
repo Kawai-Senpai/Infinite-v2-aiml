@@ -220,3 +220,42 @@ def get_available_tools():
         raise ValueError("Could not fetch available tools")
 
     return available_tools
+
+def update_agent(agent_id, user_id=None, **updates):
+    """Update an agent's details"""
+    db = mongo_client.ai.agents
+    agent = db.find_one({"_id": ObjectId(agent_id)})
+    
+    if not agent:
+        raise ValueError("Agent not found")
+    
+    if user_id and ("user_id" not in agent or agent["user_id"] != user_id):
+        raise ValueError("Not authorized to update this agent")
+
+    # Fields that can be updated
+    allowed_updates = {
+        "name", "role", "capabilities", "rules", "agent_type"
+    }
+
+    # Filter out any updates that aren't in allowed_updates
+    valid_updates = {k: v for k, v in updates.items() if k in allowed_updates}
+
+    if "agent_type" in valid_updates:
+        # Validate agent type
+        valid_agent_types = ["system", "public", "approved", "private"]
+        if valid_updates["agent_type"] not in valid_agent_types:
+            raise ValueError("Invalid agent type. Must be one of: system, public, approved, private")
+
+    # Add updated_at timestamp
+    valid_updates["updated_at"] = datetime.now(timezone.utc)
+
+    # Update the agent
+    result = db.update_one(
+        {"_id": ObjectId(agent_id)},
+        {"$set": valid_updates}
+    )
+
+    if result.modified_count == 0:
+        raise ValueError("No changes were made to the agent")
+
+    return True
