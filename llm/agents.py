@@ -178,7 +178,7 @@ def get_agent(agent_id, user_id=None):
     return agent
 
 def get_available_tools():
-    """Return a list of all available tools and their descriptions"""
+    """Return a list of all available tools and their metadata"""
     available_tools = []
     
     # Get the directory where the tools package is located
@@ -196,11 +196,19 @@ def get_available_tools():
                 # Try to import the tool's main module
                 tool_module = importlib.import_module(f"tools.{tool_name}.main")
                 
-                # Get tool info if available, otherwise use empty string
+                # Get tool metadata with default values
                 tool_info = {
                     "name": tool_name,
-                    "description": getattr(tool_module, "_info", "")
+                    "description": getattr(tool_module, "_info", ""),
+                    "author": getattr(tool_module, "_author", "Unknown"),
+                    "group": getattr(tool_module, "_group", ""),
+                    "type": getattr(tool_module, "_type", "thirdparty")  # default to thirdparty if not specified
                 }
+
+                # Validate tool type
+                if tool_info["type"] not in ["official", "thirdparty"]:
+                    tool_info["type"] = "thirdparty"  # fallback to thirdparty if invalid type
+                
                 available_tools.append(tool_info)
                 
             except ImportError as e:

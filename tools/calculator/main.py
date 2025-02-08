@@ -2,6 +2,9 @@ from .core import calculate
 
 #? Required ------------------------------------------------------------------
 _info = "This allows you to perform mathematic calculations."
+_author = "Ranit"
+_group = "InfiniteRegen"
+_type = "official" #available types are: official, thirdparty
 
 def extract_system_message(history):
     for message in history:
