@@ -14,3 +14,7 @@ uvicorn==0.34.0
 openai==1.59.3
 fastapi==0.115.8
 pymongo==4.6.3
+ultraprint==3.2.0
+jwcrypto==1.5.6
+pyjwt==2.10.1
+cohere==5.5.0

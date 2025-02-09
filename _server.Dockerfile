@@ -17,7 +17,7 @@ RUN mkdir -p /app/debug
 VOLUME ["/app/debug"]
 
 #run _init.py to create folders and structures
-RUN python _init.py
+#RUN python _init.py
 
 EXPOSE 8000
 
