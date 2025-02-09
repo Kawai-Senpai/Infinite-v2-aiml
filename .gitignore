@@ -4,6 +4,7 @@ debug/*
 cache/*
 .env.development
 .env.production
+.env.testing
 .testdata
 __pycache__
 

@@ -4,8 +4,6 @@ WORKDIR /app
 
 # Use .dockerignore to exclude specific folders instead of copying everything
 COPY . /app
-COPY .env /app/.env
-RUN sed -i 's/ENVIRONMENT = development/ENVIRONMENT = production/' .env
 
 # Debug: list file tree for verification
 RUN ls -la /app
