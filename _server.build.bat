@@ -1,0 +1,1 @@
+docker build -f _server.Dockerfile -t infinite-aiml . 

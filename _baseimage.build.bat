@@ -1,0 +1,1 @@
+docker build -f _baseimage.Dockerfile -t infinite-base .  

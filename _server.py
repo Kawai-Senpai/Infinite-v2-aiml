@@ -6,6 +6,7 @@ from routes.chat_route import router as chat_router
 from errors.error_logger import log_exception_with_request
 from database.mongo import pingtest as mongo_pingtest
 from database.chroma import pingtest as chroma_pingtest 
+from keys.keys import environment
 import uvicorn
 
 app = FastAPI()
@@ -38,5 +39,5 @@ async def status(request: Request):
             "error": str(e)
         }
 
-if __name__ == "__main__":
+if __name__ == "__main__" and environment == "development":
     uvicorn.run("_server:app", host="localhost", port=8000, reload=True)
