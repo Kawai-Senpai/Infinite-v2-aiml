@@ -8,4 +8,7 @@ _type = "official" #available types are: official, thirdparty
 
 def _execute(agent, message, history):
     """Main function to execute the web search tool"""
-    return web_search(message)
+    try:
+        return web_search(message)
+    except Exception as e:
+        return ""
