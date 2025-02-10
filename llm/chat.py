@@ -12,6 +12,7 @@ from llm.sessions import update_session_history, get_recent_history
 from llm.tools import execute_tools  # Update import
 from concurrent.futures import ThreadPoolExecutor
 from llm.decision import analyze_for_memory
+from datetime import datetime
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -214,10 +215,10 @@ def chat(
 
     # Get recent history and add system message
     try:
-        messages = get_recent_history(session_id, user_id, limit=agent["max_history"])
-        messages = messages.get("history", [])
-        if not isinstance(messages, list):
-            messages = []  # Ensure messages is a list
+        history_response = get_recent_history(session_id, user_id, limit=agent.get("max_history", 10))
+        messages = history_response.get("history", [])
+        # Keep only role and content fields, remove timestamps
+        messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
     except Exception as e:
         log.error("Error getting recent history: %s", e)
         messages = []

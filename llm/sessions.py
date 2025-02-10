@@ -117,11 +117,11 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     # Convert agent_id field if present
     if "agent_id" in session:
         session["agent_id"] = convert_objectid_to_str(session["agent_id"])
-    # Sort history by timestamp descending
+    # Sort history by timestamp ascending (oldest first)
     history = sorted(
         session.get("history", []),
-        key=lambda x: x.get("timestamp", datetime.min),
-        reverse=True
+        key=lambda x: x.get("timestamp", ""),  # Compare strings directly
+        reverse=False  # Change to False to get oldest first
     )
     total = len(history)
     paginated_history = history[skip:skip + limit]
@@ -148,7 +148,7 @@ def update_session_history(session_id: str, role: str, content: str, user_id: st
         {"$push": {"history": {
             "role": role,
             "content": content,
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(timezone.utc).isoformat()  # Convert datetime to string
         }}}
     )
 
@@ -166,11 +166,11 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     # Convert agent_id field if present
     if "agent_id" in session:
         session["agent_id"] = convert_objectid_to_str(session["agent_id"])
-    # Sort history by timestamp descending
+    # Sort history by timestamp ascending (oldest first) 
     history = sorted(
         session.get("history", []),
-        key=lambda x: x.get("timestamp", datetime.min),
-        reverse=True
+        key=lambda x: x.get("timestamp", ""),  # Compare strings directly
+        reverse=False  # Change to False to get oldest first
     )
     
     total = len(history)
