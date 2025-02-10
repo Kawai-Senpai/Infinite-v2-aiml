@@ -70,8 +70,10 @@ def make_memory_analysis_prompt(message: str) -> str:
     example = """Your output should look like this (example):
 {
     "to_remember": [
-        "important information1",
-        "important information2"
+        "The user's name is John",
+        "The user's favorite color is blue",
+        "John is a software developer",
+        "He wants his responses to be in simple language"
     ]
 }"""
     return f"""Analyze if this message contains any important personal information about the user that should be remembered for future interactions.

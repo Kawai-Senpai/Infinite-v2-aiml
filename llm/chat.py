@@ -210,6 +210,7 @@ def chat(
 
     # Get recent history and add system message
     messages = get_recent_history(session_id, user_id, limit=agent["max_history"])
+    messages = messages.get("history", [])
     if not isinstance(messages, list):
         messages = []  # Ensure messages is a list
 
