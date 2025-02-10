@@ -84,7 +84,7 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     # Get full history and sort by timestamp descending
     full_history = sorted(
         session.get("history", []),
-        key=lambda x: x.get("timestamp", datetime.min),
+        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
         reverse=True
     )
     total_messages = len(full_history)
@@ -120,7 +120,7 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     # Sort history by timestamp ascending (oldest first)
     history = sorted(
         session.get("history", []),
-        key=lambda x: x.get("timestamp", ""),  # Compare strings directly
+        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
         reverse=False  # Change to False to get oldest first
     )
     total = len(history)
@@ -169,7 +169,7 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     # Sort history by timestamp ascending (oldest first) 
     history = sorted(
         session.get("history", []),
-        key=lambda x: x.get("timestamp", ""),  # Compare strings directly
+        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
         reverse=False  # Change to False to get oldest first
     )
     
