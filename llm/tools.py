@@ -26,45 +26,48 @@ def _execute_tool(tool, agent, message, history):
 
 def execute_tools(agent, message, history):
     """Execute multiple tools in parallel and combine their responses"""
-
-    enabled_tools = agent.get("tools", [])
-    # Add tool descriptions
-    updated_tools = []
-    for tool in enabled_tools:
-        try:
-            tool_module = importlib.import_module(f"tools.{tool}.main")
-            tool_item = {
-                "name": tool,
-                "description": getattr(tool_module, "_info", "")
-            }
-        except ImportError as e:
-            log.error("Could not import tool '%s' for description: %s", tool, e)
-            tool_item = {
-                "name": tool,
-                "description": ""
-            }
-        updated_tools.append(tool_item)
-    
-    response = analyze_tool_need(message, updated_tools)
-    tools_list = response.get("tools", [])
-
-    if not tools_list:
-        return ""
-    
-    log.debug("Executing tools in parallel: %s", tools_list)
-    
-    max_workers = min(len(tools_list), config.get("constraints.max_parallel_tools", 5))
-    responses = []
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_tool = {
-            executor.submit(_execute_tool, tool, agent, message, history): tool 
-            for tool in tools_list
-        }
+    try:
+        enabled_tools = agent.get("tools", [])
+        # Add tool descriptions
+        updated_tools = []
+        for tool in enabled_tools:
+            try:
+                tool_module = importlib.import_module(f"tools.{tool}.main")
+                tool_item = {
+                    "name": tool,
+                    "description": getattr(tool_module, "_info", "")
+                }
+            except ImportError as e:
+                log.error("Could not import tool '%s' for description: %s", tool, e)
+                tool_item = {
+                    "name": tool,
+                    "description": ""
+                }
+            updated_tools.append(tool_item)
         
-        for future in as_completed(future_to_tool):
-            result = future.result()
-            if result:
-                responses.append(result)
+        response = analyze_tool_need(message, updated_tools)
+        tools_list = response.get("tools", [])
 
-    return "\n\n".join([f"{r['tool']} response: {r['response']}" for r in responses])
+        if not tools_list:
+            return ""
+        
+        log.debug("Executing tools in parallel: %s", tools_list)
+        
+        max_workers = min(len(tools_list), config.get("constraints.max_parallel_tools", 5))
+        responses = []
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_tool = {
+                executor.submit(_execute_tool, tool, agent, message, history): tool 
+                for tool in tools_list
+            }
+            
+            for future in as_completed(future_to_tool):
+                result = future.result()
+                if result:
+                    responses.append(result)
+
+        return "\n\n".join([f"{r['tool']} response: {r['response']}" for r in responses])
+    except Exception as e:
+        log.error("Error executing tools: %s", e)
+        return ""

@@ -33,14 +33,18 @@ def analyze_tool_need(message: str, available_tools: list) -> dict:
 
 def analyze_for_memory(message: str) -> dict:
     """Analyze if the message contains important information to remember"""
-    prompt = make_memory_analysis_prompt(message)
-    response = client.beta.chat.completions.parse(
-        model=config.get("models.dicision"),
-        messages=[{"role": "system", "content": prompt}],
-        response_format=MemorySchema
-    )
-    content = response.choices[0].message.parsed
-    if not content:
+    try:
+        prompt = make_memory_analysis_prompt(message)
+        response = client.beta.chat.completions.parse(
+            model=config.get("models.dicision"),
+            messages=[{"role": "system", "content": prompt}],
+            response_format=MemorySchema
+        )
+        content = response.choices[0].message.parsed
+        if not content:
+            return {"to_remember": []}
+        return extract_json_content(content)
+    except Exception as e:
+        log.error("Error analyzing for memory: %s", e)
         return {"to_remember": []}
-    return extract_json_content(content)
 
