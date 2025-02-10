@@ -167,6 +167,10 @@ def handle_stream_response(session_id, response_stream):
     # Update history with complete message
     update_session_history(session_id, "assistant", full_response)
 
+def stream_generator(sentence):
+    """Generator to stream a single sentence"""
+    yield sentence
+
 def verify_session_access(session_id: str, user_id: str = None) -> bool:
     """Verify if user has access to the session"""
     if not user_id:
@@ -215,28 +219,62 @@ def chat(
         messages = []  # Ensure messages is a list
 
     # Parallel execution of tool analysis and memory analysis
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        log.debug("Analyzing tool need and memory storage")
-        log.debug("Agent tools: %s", agent["tools"])
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            log.debug("Analyzing tool need and memory storage")
+            log.debug("Agent tools: %s", agent["tools"])
 
-        tool_future = executor.submit(execute_tools, agent, message, messages)
-        memory_future = executor.submit(analyze_for_memory, message)
-        
-        memory_result = memory_future.result()
-        if memory_result["to_remember"]:
-            log.debug("Adding memory items: %s", memory_result["to_remember"])
-            update_memory(agent_id, memory_result["to_remember"])
-        tool_response = tool_future.result()
+            tool_future = executor.submit(execute_tools, agent, message, messages)
+            memory_future = executor.submit(analyze_for_memory, message)
+            
+            memory_result = memory_future.result()
+            if memory_result["to_remember"]:
+                log.debug("Adding memory items: %s", memory_result["to_remember"])
+                update_memory(agent_id, memory_result["to_remember"])
+            tool_response = tool_future.result()
+    except Exception as e:
+        log.error("Error analyzing tools and memory: %s", e)
+        tool_response = ""
 
     # Get relevant context if RAG is enabled
-    context_results = get_relevant_context(agent_id, message, session_id) if use_rag else []
-    memory_items = agent.get("memory", [])
+    try:
+        context_results = get_relevant_context(agent_id, message, session_id) if use_rag else []
+    except Exception as e:
+        log.error("Error getting context: %s", e)
+        context_results = []
+    
+    try:
+        memory_items = agent.get("memory", [])
+    except Exception as e:
+        log.error("Error getting memory items: %s", e)
+        memory_items = []
     
     # Format all messages
-    formatted_context = format_context(context_results, memory_items)
-    prompt = make_basic_prompt(agent["name"], agent["role"], agent["capabilities"], agent["rules"])
-    system_message = format_system_message(prompt, formatted_context, tool_response)
+    #* Format context
+    try:
+        formatted_context = format_context(context_results, memory_items)
+    except Exception as e:
+        log.error("Error formatting context: %s", e)
+        formatted_context = ""
+
+    #* Format basic prompt
+    try:
+        prompt = make_basic_prompt(agent["name"], agent["role"], agent["capabilities"], agent["rules"])
+    except Exception as e:
+        log.error("Error making basic prompt: %s", e)
+        prompt = ""
+
+    #* Format system message
+    try:
+        system_message = format_system_message(prompt, formatted_context, tool_response)
+    except Exception as e:
+        log.error("Error formatting system message: %s", e)
+        system_message = ""
     
+    # Make sure system message and messages are strings
+    system_message = str(system_message)
+    message = str(message)
+
     # Add system message and user message
     messages.extend([
         {"role": "system", "content": system_message},
@@ -245,35 +283,46 @@ def chat(
 
     # Update history
     #TODO: Do this in parallel
-    update_session_history(session_id, "user", message)
+    try:
+        update_session_history(session_id, "user", message)
+    except Exception as e:
+        log.error("Error updating session history: %s", e)
 
-    # Route to appropriate chat function
-    if agent["model_provider"] == "openai":
-        if stream:
-            response = chat_with_openai_stream(agent_id, messages)
-        else:
-            response = chat_with_openai_sync(agent_id, messages)
-    else:  # cohere
-        if stream:
-            response = chat_with_cohere_stream(agent_id, messages)
-        else:
-            response = chat_with_cohere_sync(agent_id, messages)
+    try:
+        # Route to appropriate chat function
+        if agent["model_provider"] == "openai":
+            if stream:
+                response = chat_with_openai_stream(agent_id, messages)
+            else:
+                response = chat_with_openai_sync(agent_id, messages)
+        else:  # cohere
+            if stream:
+                response = chat_with_cohere_stream(agent_id, messages)
+            else:
+                response = chat_with_cohere_sync(agent_id, messages)
 
-    if stream:
-        return handle_stream_response(session_id, response)
-    else:
-        # If response is already a string, use it directly
-        if isinstance(response, str):
-            final_response = response
-        # If response is a generator, join its contents
-        elif hasattr(response, '__iter__'):
-            final_response = ''.join(list(response))
+        if stream:
+            return handle_stream_response(session_id, response)
         else:
-            final_response = str(response)
-            
-        if not final_response:
-            final_response = "No response generated"
-            
-        # Update history with the complete response
-        update_session_history(session_id, "assistant", final_response)
-        return final_response
+            # If response is already a string, use it directly
+            if isinstance(response, str):
+                final_response = response
+            # If response is a generator, join its contents
+            elif hasattr(response, '__iter__'):
+                final_response = ''.join(list(response))
+            else:
+                final_response = str(response)
+                
+            if not final_response:
+                final_response = "No response generated"
+                
+            # Update history with the complete response
+            update_session_history(session_id, "assistant", final_response)
+            return final_response
+    except Exception as e:
+        log.error(f"Chat error: {e}")
+        fallback_message = "I'm sorry, I'm taking a break right now. Please try again later."
+        if stream:
+            return handle_stream_response(session_id, stream_generator(fallback_message))
+        else:
+            return fallback_message
