@@ -3,3 +3,5 @@
 .env.production
 .env.development
 .env.testing
+_auto_git_summary.bat
+reports/*
