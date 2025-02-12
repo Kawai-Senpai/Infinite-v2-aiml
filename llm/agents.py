@@ -78,7 +78,6 @@ def create_agent(name,
         "tools": tools,
         "collection_ids": collection_ids,  # Replace chroma_collections with collection_ids
         "files": [],
-        "memory": [], 
         "max_memory_size": max_memory_size, 
         "created_at": datetime.now(timezone.utc),
         "agent_type": agent_type  # Replace system_agent with agent_type
@@ -231,6 +230,9 @@ def update_agent(agent_id, user_id=None, **updates):
     
     if user_id and ("user_id" not in agent or agent["user_id"] != user_id):
         raise ValueError("Not authorized to update this agent")
+
+    if "user_id" in updates:
+        del updates["user_id"]  # Remove or rename to avoid conflict
 
     # Fields that can be updated
     allowed_updates = {

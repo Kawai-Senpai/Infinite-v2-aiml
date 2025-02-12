@@ -7,7 +7,7 @@
     },
     "mongo": {
         "structure": {
-            "ai": ["agents", "files", "sessions"],
+            "ai": ["agents", "files", "sessions", "memory"],
             "logs": ["error"]
         }
     },

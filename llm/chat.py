@@ -2,7 +2,7 @@ from database.mongo import client as mongo_client
 from keys.keys import environment, openai_api_key, cohere_api_key
 from ultraconfiguration import UltraConfig
 from ultraprint.logging import logger
-from bson import ObjectId
+from bson import ObjectId, errors
 from openai import OpenAI
 import cohere
 from typing import Generator
@@ -13,6 +13,7 @@ from llm.tools import execute_tools  # Update import
 from concurrent.futures import ThreadPoolExecutor
 from llm.decision import analyze_for_memory
 from datetime import datetime
+from llm.memory import get_memory, update_memory
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -46,27 +47,6 @@ def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
         if results and results["matches"]:
             all_results.append(results)
     return all_results
-
-def update_memory(agent_id: str, new_items: list):
-    """Update agent's memory with new items, maintaining size limit"""
-
-    db = mongo_client.ai.agents
-    agent = db.find_one({"_id": ObjectId(agent_id)})
-    if not agent:
-        raise ValueError("Agent not found")
-    
-    memory = agent.get("memory", [])
-    memory.extend(new_items)  # Add all new items
-    
-    # Keep only the most recent items based on max_memory_size
-    max_size = agent.get("max_memory_size", 10)
-    if len(memory) > max_size:
-        memory = memory[-max_size:]
-    
-    db.update_one(
-        {"_id": ObjectId(agent_id)},
-        {"$set": {"memory": memory}}
-    )
 
 #! Core chat functions -------------------------------------------------------
 #* Formatters ----------------------------------------------------------------
@@ -174,11 +154,15 @@ def stream_generator(sentence):
 
 def verify_session_access(session_id: str, user_id: str = None) -> bool:
     """Verify if user has access to the session"""
+    try:
+        session_id_obj = ObjectId(session_id)
+    except errors.InvalidId:
+        return False  # or raise ValueError("Invalid session ID")
     if not user_id:
         return True
         
     db = mongo_client.ai
-    session = db.sessions.find_one({"_id": ObjectId(session_id)})
+    session = db.sessions.find_one({"_id": session_id_obj})
     if not session:
         return False
         
@@ -235,7 +219,7 @@ def chat(
             memory_result = memory_future.result()
             if memory_result["to_remember"]:
                 log.debug("Adding memory items: %s", memory_result["to_remember"])
-                update_memory(agent_id, memory_result["to_remember"])
+                update_memory(agent_id, user_id, agent.get("max_memory_size", 10), memory_result["to_remember"])
             tool_response = tool_future.result()
     except Exception as e:
         log.error("Error analyzing tools and memory: %s", e)
@@ -249,9 +233,8 @@ def chat(
         context_results = []
     
     try:
-        memory_items = agent.get("memory", [])
-    except Exception as e:
-        log.error("Error getting memory items: %s", e)
+        memory_items = get_memory(agent_id, user_id)
+    except Exception:
         memory_items = []
     
     # Format all messages
