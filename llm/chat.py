@@ -130,8 +130,8 @@ def chat_with_cohere_stream(agent_id: str, messages: list):
             yield event.text
 
 #! Driver function -----------------------------------------------------------
-def handle_stream_response(session_id, response_stream):
-    """Handle streaming response and update history"""
+def handle_stream_response(session_id, response_stream, metadata=None):
+    """Wrap the streaming response to yield text first, then optional metadata"""
     full_response = ""
     for chunk in response_stream:
         if isinstance(chunk, str):
@@ -146,7 +146,9 @@ def handle_stream_response(session_id, response_stream):
                     yield content
     
     # Update history with complete message
-    update_session_history(session_id, "assistant", full_response)
+    update_session_history(session_id, "assistant", full_response, metadata=metadata)
+    if metadata:
+        yield f"\n[metadata]={metadata}"
 
 def stream_generator(sentence):
     """Generator to stream a single sentence"""
@@ -179,11 +181,12 @@ def verify_session_access(session_id: str, user_id: str = None) -> bool:
 
 def chat(
     agent_id: str,
-    session_id: str,  # This is now expecting MongoDB's _id
+    session_id: str,
     message: str,
     stream: bool = False,
     use_rag: bool = True,
-    user_id: str = None
+    user_id: str = None,
+    include_rich_response: bool = True
 ) -> Generator[str, None, None] | str:
     
     """Main chat function that handles both models and RAG"""
@@ -220,10 +223,20 @@ def chat(
             if memory_result["to_remember"]:
                 log.debug("Adding memory items: %s", memory_result["to_remember"])
                 update_memory(agent_id, user_id, agent.get("max_memory_size", 10), memory_result["to_remember"])
-            tool_response = tool_future.result()
+            tool_result = tool_future.result()
+            tool_text = tool_result.get("text", "")
+            tool_metadata = tool_result.get("metadata", {})
+            # NEW: Extract used, not_used, and results from tool_metadata
+            tool_used = tool_metadata.get("used", [])
+            tool_not_used = tool_metadata.get("not_used", [])
+            tool_results = tool_metadata.get("results", [])
     except Exception as e:
         log.error("Error analyzing tools and memory: %s", e)
-        tool_response = ""
+        tool_text = ""
+        tool_metadata = {}
+        tool_used = []
+        tool_not_used = []
+        tool_results = []
 
     # Get relevant context if RAG is enabled
     try:
@@ -254,7 +267,7 @@ def chat(
 
     #* Format system message
     try:
-        system_message = format_system_message(prompt, formatted_context, tool_response)
+        system_message = format_system_message(prompt, formatted_context, tool_text)
     except Exception as e:
         log.error("Error formatting system message: %s", e)
         system_message = ""
@@ -290,7 +303,16 @@ def chat(
                 response = chat_with_cohere_sync(agent_id, messages)
 
         if stream:
-            return handle_stream_response(session_id, response)
+            if include_rich_response:
+                tool_info = {
+                    "tool_results": tool_results,
+                    "tools_used": tool_used,
+                    "tools_not_used": tool_not_used,
+                    "memories_used": memory_items
+                }
+                return handle_stream_response(session_id, response, metadata=tool_info)
+            else:
+                return handle_stream_response(session_id, response)
         else:
             # If response is already a string, use it directly
             if isinstance(response, str):
@@ -304,9 +326,22 @@ def chat(
             if not final_response:
                 final_response = "No response generated"
                 
-            # Update history with the complete response
-            update_session_history(session_id, "assistant", final_response)
-            return final_response
+            # Update session history with metadata when rich response is included
+            if include_rich_response:
+                update_session_history(session_id, "assistant", final_response, metadata=tool_info)
+            else:
+                update_session_history(session_id, "assistant", final_response)
+
+            if include_rich_response:
+                return {
+                    "response": final_response,
+                    "tool_results": tool_results,
+                    "tools_used": tool_used,
+                    "tools_not_used": tool_not_used,
+                    "memories_used": memory_items
+                }
+            else:
+                return final_response
     except Exception as e:
         log.error(f"Chat error: {e}")
         fallback_message = "I'm sorry, I'm taking a break right now. Please try again later."

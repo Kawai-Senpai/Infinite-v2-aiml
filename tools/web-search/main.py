@@ -11,4 +11,4 @@ def _execute(agent, message, history):
     try:
         return web_search(message)
     except Exception as e:
-        return ""
+        return {"text": "", "data": {"queries": [], "results": []}}

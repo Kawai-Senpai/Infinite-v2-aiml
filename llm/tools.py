@@ -28,7 +28,7 @@ def execute_tools(agent, message, history):
     """Execute multiple tools in parallel and combine their responses"""
     try:
         enabled_tools = agent.get("tools", [])
-        # Add tool descriptions
+        # Build updated tool descriptions
         updated_tools = []
         for tool in enabled_tools:
             try:
@@ -39,35 +39,38 @@ def execute_tools(agent, message, history):
                 }
             except ImportError as e:
                 log.error("Could not import tool '%s' for description: %s", tool, e)
-                tool_item = {
-                    "name": tool,
-                    "description": ""
-                }
+                tool_item = {"name": tool, "description": ""}
             updated_tools.append(tool_item)
         
         response = analyze_tool_need(message, updated_tools)
         tools_list = response.get("tools", [])
-
         if not tools_list:
-            return ""
+            return {"text": "", "metadata": {"results": [], "used": [], "not_used": enabled_tools}}
         
         log.debug("Executing tools in parallel: %s", tools_list)
-        
         max_workers = min(len(tools_list), config.get("constraints.max_parallel_tools", 5))
         responses = []
-        
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_tool = {
                 executor.submit(_execute_tool, tool, agent, message, history): tool 
                 for tool in tools_list
             }
-            
             for future in as_completed(future_to_tool):
                 result = future.result()
                 if result:
                     responses.append(result)
 
-        return "\n\n".join([f"{r['tool']} response: {r['response']}" for r in responses])
+        text_output = "\n\n".join([
+            f"{r['tool']} response: {r['response'].get('text', '')}"
+            for r in responses
+        ])
+        metadata_output = [
+            {"tool": r["tool"], "metadata": r["response"].get("data", {})}
+            for r in responses
+        ]
+        used = tools_list
+        not_used = [tool for tool in [t["name"] for t in updated_tools] if tool not in used]
+        return {"text": text_output, "metadata": {"results": metadata_output, "used": used, "not_used": not_used}}
     except Exception as e:
         log.error("Error executing tools: %s", e)
-        return ""
+        return {"text": "", "metadata": {"results": [], "used": [], "not_used": []}}

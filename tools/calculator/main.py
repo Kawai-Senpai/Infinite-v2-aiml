@@ -11,4 +11,7 @@ def _execute(agent, message, history):
     try:
         return calculate(message)
     except Exception as e:
-        return ""
+        return {
+            "text": "",
+            "data": []
+        }

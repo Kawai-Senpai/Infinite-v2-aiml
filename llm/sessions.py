@@ -133,7 +133,7 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
         "limit": limit
     }
 
-def update_session_history(session_id: str, role: str, content: str, user_id: str = None):
+def update_session_history(session_id: str, role: str, content: str, metadata: dict = None, user_id: str = None):
     """Add message to session history with security check."""
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
@@ -143,13 +143,16 @@ def update_session_history(session_id: str, role: str, content: str, user_id: st
         agent = db.agents.find_one({"_id": session["agent_id"]})
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to update this session")
+    entry = {
+        "role": role,
+        "content": content,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    if metadata:
+        entry["metadata"] = metadata
     db.sessions.update_one(
-        {"_id": ObjectId(session_id)},  # Changed from session_id to _id
-        {"$push": {"history": {
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now(timezone.utc).isoformat()  # Convert datetime to string
-        }}}
+        {"_id": ObjectId(session_id)},
+        {"$push": {"history": entry}}
     )
 
 def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
