@@ -13,6 +13,7 @@ async def chat_endpoint(
     body: dict = Body(...),
     stream: Optional[bool] = False,
     use_rag: Optional[bool] = True,
+    include_rich_response: Optional[bool] = True,
     user_id: Optional[str] = None,
     request: Request = None
 ):
@@ -30,7 +31,8 @@ async def chat_endpoint(
                     message=message,
                     stream=True,
                     use_rag=use_rag,
-                    user_id=user_id
+                    user_id=user_id,
+                    include_rich_response=include_rich_response
                 ),
                 media_type='text/event-stream'
             )
@@ -41,7 +43,8 @@ async def chat_endpoint(
                 message=message,
                 stream=False,
                 use_rag=use_rag,
-                user_id=user_id
+                user_id=user_id,
+                include_rich_response=include_rich_response
             )
             return {
                 "message": "Chat completed successfully.",
