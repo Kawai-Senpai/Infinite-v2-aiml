@@ -8,7 +8,8 @@
     "mongo": {
         "structure": {
             "ai": ["agents", "files", "sessions", "memory"],
-            "logs": ["error"]
+            "logs": ["error"],
+            "jobs": ["files"]
         }
     },
     "chroma": {
@@ -38,6 +39,6 @@
     },
     "aws": {
         "region": "us-east-1",
-        "bucket": "infinite-bucket"
+        "bucket": "infinite-v2-data"
     }
 }
