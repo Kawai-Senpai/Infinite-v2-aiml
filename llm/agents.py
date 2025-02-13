@@ -117,9 +117,11 @@ def get_all_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at"
     for agent in agents:
         agent["_id"] = convert_objectid_to_str(agent["_id"])
         if "created_at" in agent:
-            agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+            agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
         if "updated_at" in agent:
-            agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+            agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
+        if "files" in agent:  # Added conversion for files list
+            agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
     return agents
 
 def get_all_nonprivate_agents_for_user(user_id: str, limit=20, skip=0, sort_by="created_at", sort_order=-1):
@@ -132,34 +134,63 @@ def get_all_nonprivate_agents_for_user(user_id: str, limit=20, skip=0, sort_by="
     for agent in agents:
         agent["_id"] = convert_objectid_to_str(agent["_id"])
         if "created_at" in agent:
-            agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+            agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
         if "updated_at" in agent:
-            agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+            agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
+        if "files" in agent:  # Added conversion for files list
+            agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
     return agents
 
 def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
     """Return paginated and sorted list of public agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "public"})
+    agents = list(db.agents.find({"agent_type": "public"})
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
+        if "files" in agent:
+            agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+    return agents
 
 def get_all_approved_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
     """Return paginated and sorted list of approved agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "approved"})
+    agents = list(db.agents.find({"agent_type": "approved"})
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
+        if "files" in agent:
+            agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+    return agents
 
 def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
     """Return paginated and sorted list of system agents."""
     db = mongo_client.ai
-    return list(db.agents.find({"agent_type": "system"})
+    agents = list(db.agents.find({"agent_type": "system"})
                 .sort(sort_by, sort_order)
                 .skip(skip)
                 .limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
+        if "files" in agent:
+            agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+    return agents
 
 def get_agent(agent_id, user_id=None):
     """Return details of a single agent by agent_id; if user_id is given, restrict access to agents owned by that user."""
@@ -171,9 +202,9 @@ def get_agent(agent_id, user_id=None):
         raise ValueError("Not authorized to view this agent")
     agent["_id"] = convert_objectid_to_str(agent["_id"])
     if "created_at" in agent:
-        agent["created_at"] = convert_objectid_to_str(agent["created_at"])
+        agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
     if "updated_at" in agent:
-        agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+        agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
     # Convert files ObjectId to string
     if "files" in agent:
         agent["files"] = [convert_objectid_to_str(file) for file in agent["files"]]

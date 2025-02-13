@@ -106,11 +106,24 @@ async def retrieve_all_collections_for_agent(agent_id: str, request: Request, us
             "error": str(e)
         })
 
-@router.get("/collections/files/{agent_id}/{collection_id}")
-async def retrieve_all_files_for_collection(agent_id: str, collection_id: str, request: Request, user_id: str = None, limit: int = 20, skip: int = 0):
-    """Return paginated list of files for a collection."""
+@router.get("/collections/files/{agent_id}/{collection_index}")
+async def retrieve_all_files_for_collection(
+    agent_id: str, 
+    collection_index: int,  # Changed from collection_id to collection_index
+    request: Request, 
+    user_id: str = None, 
+    limit: int = 20, 
+    skip: int = 0
+):
+    """Return paginated list of files for a collection using collection index."""
     try:
-        data = get_all_files_for_collection(agent_id, collection_id, user_id=user_id, limit=limit, skip=skip)
+        data = get_all_files_for_collection(
+            agent_id, 
+            collection_index=collection_index,  # Pass as named parameter
+            user_id=user_id, 
+            limit=limit, 
+            skip=skip
+        )
         return {"message": "Collection files retrieved successfully.", "data": data}
     except Exception as e:
         log_exception_with_request(e, retrieve_all_files_for_collection, request)

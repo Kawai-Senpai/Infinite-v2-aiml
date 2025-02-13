@@ -182,17 +182,29 @@ def get_all_collections_for_agent(agent_id, user_id=None):
         raise ValueError("Not authorized to view collections for this agent")
     return agent.get("collection_ids", [])
 
-def get_all_files_for_collection(agent_id, collection_index: int, user_id=None, limit=20, skip=0, sort_by="uploaded_at", sort_order=-1):
-    """Return paginated and sorted list of files for a specific collection using collection_index."""
+def get_all_files_for_collection(agent_id, *, collection_index: int, user_id=None, limit=20, skip=0, sort_by="uploaded_at", sort_order=-1):
+    """Return paginated and sorted list of files for a specific collection using collection_index.
+    
+    Args:
+        agent_id: The ID of the agent
+        collection_index: The index of the collection in the agent's collection_ids array (0-based)
+        user_id: Optional user ID for authorization
+        limit: Maximum number of records to return
+        skip: Number of records to skip
+        sort_by: Field to sort by
+        sort_order: Sort direction (1 for ascending, -1 for descending)
+    """
     agent_id = to_obj(agent_id)
     db_agents = mongo_client.ai.agents
     agent = db_agents.find_one({"_id": agent_id})
     if not agent:
         raise ValueError("Agent not found")
+        
     try:
+        collection_index = int(collection_index)  # Ensure we have an integer
         target_collection_id = agent["collection_ids"][collection_index]
-    except IndexError:
-        raise ValueError("Invalid collection index for this agent")
+    except (ValueError, IndexError):
+        raise ValueError(f"Invalid collection index {collection_index} for this agent")
     
     if user_id:
         user_id = to_obj(user_id)
