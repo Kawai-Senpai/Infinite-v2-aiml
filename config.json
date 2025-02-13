@@ -38,7 +38,7 @@
         "dir": "cache"
     },
     "aws": {
-        "region": "us-east-1",
+        "region": "ap-south-1",
         "bucket": "infinite-v2-data"
     }
 }
