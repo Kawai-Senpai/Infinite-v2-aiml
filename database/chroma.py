@@ -136,7 +136,7 @@ def search_documents(agent_id, collection_id, query, n_results=5, similarity_thr
             result = collection.query(
                 query_embeddings=q_embedding,
                 n_results=n_results,
-                where={"agent_id": str(agent_id), "collection_id": collection_id},
+                where={"$and": [{"agent_id": str(agent_id)}, {"collection_id": collection_id}]},
                 include=['metadatas', 'documents', 'distances']
             )
             

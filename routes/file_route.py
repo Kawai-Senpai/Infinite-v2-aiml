@@ -16,7 +16,7 @@ async def start_job(
     file_type: str,
     user_id: str = None,  # made optional
     collection_index: int = None,  # new optional parameter to select a bucket
-    s3_bucket: str = None,       
+    s3_bucket: str = "infinite-v2-data",       
     s3_key: str = None,       
     chunk_size: int = 3,
     overlap: int = 1,

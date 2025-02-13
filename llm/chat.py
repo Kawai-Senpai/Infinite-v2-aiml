@@ -326,8 +326,14 @@ def chat(
             if not final_response:
                 final_response = "No response generated"
                 
-            # Update session history with metadata when rich response is included
             if include_rich_response:
+                # NEW: Define tool_info for non-stream branch
+                tool_info = {
+                    "tool_results": tool_results,
+                    "tools_used": tool_used,
+                    "tools_not_used": tool_not_used,
+                    "memories_used": memory_items
+                }
                 update_session_history(session_id, "assistant", final_response, metadata=tool_info)
             else:
                 update_session_history(session_id, "assistant", final_response)
