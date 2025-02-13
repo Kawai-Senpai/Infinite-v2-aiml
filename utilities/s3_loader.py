@@ -21,7 +21,7 @@ log = logger('s3_loader_log',
 # essential variables
 temp_dir = config.get("caching.dir", "cache")
 aws_region = config.get("aws.region", "us-east-1")
-default_bucket_name = config.get("aws.default_bucket_name", "infinite-bucket")
+default_bucket_name = config.get("aws.default_bucket_name", "infinite-v2-data")
 
 # Ensure Temp directory exists
 os.makedirs(temp_dir, exist_ok=True)

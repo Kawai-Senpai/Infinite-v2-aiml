@@ -49,7 +49,7 @@ def process_file_job(job_id: str, agent_id: str, user_id: str,
         update_progress(job_id, "chunking")
         chunking_start = datetime.now(timezone.utc)
         # Pass s3_bucket and s3_key to add_file unconditionally
-        chunks_added = add_file(agent_id, text, file_name, file_type,
+        add_file_result = add_file(agent_id, text, file_name, file_type,
                                 chunk_size=chunk_size, overlap=overlap,
                                 chunk_type=chunk_type, user_id=user_id,
                                 s3_bucket=s3_bucket, s3_key=s3_key,
@@ -58,14 +58,16 @@ def process_file_job(job_id: str, agent_id: str, user_id: str,
         update_progress(job_id, "chunking", status="COMPLETED", details={"duration": chunking_duration})
         
         file_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
-        update_progress(job_id, "completed", status="COMPLETED", details={
-            "results": {
-                "chunks_added": chunks_added,
-                "file_hash": file_hash
-            }
-        })
-        # NEW: Update overall job status
-        mongo_client.jobs.files.update_one({"_id": ObjectId(job_id)}, {"$set": {"status": "COMPLETED"}})
+        update_progress(job_id, "completed", status="COMPLETED")
+        mongo_client.jobs.files.update_one(
+            {"_id": ObjectId(job_id)},
+            {"$set": {
+                "status": "COMPLETED",
+                "chunks_added": add_file_result["chunks_added"],
+                "file_hash": file_hash,
+                "file_id": add_file_result["file_id"]
+            }}
+        )
         
     except Exception as e:
         error_msg = traceback.format_exc()  # Capture full traceback

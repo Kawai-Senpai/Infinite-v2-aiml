@@ -24,7 +24,7 @@ log = logger('file_management_log',
 
 def add_file(agent_id, text, file_name, file_type, chunk_size=3, overlap=1, chunk_type="sentence", 
              *,  # force subsequent params to be keyword-only
-             collection_index: int = None, origin=None, user_id=None, s3_bucket=None, s3_key=None):
+            collection_index: int = None, user_id=None, s3_bucket=None, s3_key=None):
     """Chunk text and store vector embeddings using collection_index for bucket selection."""
     # Convert supplied IDs
     agent_id = to_obj(agent_id)
@@ -49,16 +49,12 @@ def add_file(agent_id, text, file_name, file_type, chunk_size=3, overlap=1, chun
     except IndexError:
         raise ValueError("Invalid collection index for this agent")
     
-    if origin is not None:
-        if file_type is None:
-            raise ValueError("file_type must be provided")
-        supported_types = config.get("supported.file_types", [])
-        if file_type not in supported_types:
-            raise ValueError(f"Unsupported file_type. Supported types: {supported_types}")
-        origin["type"] = file_type
-    else:
-        origin = {"type": file_type}
-    
+    if file_type is None:
+        raise ValueError("file_type must be provided")
+    supported_types = config.get("supported.file_types", [])
+    if file_type not in supported_types:
+        raise ValueError(f"Unsupported file_type. Supported types: {supported_types}")
+
     log.debug(f"Chunking text using {chunk_type} method with size {chunk_size} and overlap {overlap}")
     if chunk_type == "character":
         chunks = character_chunker(text, chunk_size, overlap)
@@ -94,7 +90,6 @@ def add_file(agent_id, text, file_name, file_type, chunk_size=3, overlap=1, chun
         "chunk_ids": chunk_ids,
         "file_hash": file_hash,
         "collection_id": collection_id,
-        "origin": origin,
         "file_type": file_type,  # Always record file type
         "uploaded_at": datetime.now(timezone.utc)
     }
@@ -112,7 +107,10 @@ def add_file(agent_id, text, file_name, file_type, chunk_size=3, overlap=1, chun
     mongo_client.ai.agents.update_one({"_id": agent_id}, {"$push": {"files": file_doc["_id"]}})
     
     log.success(f"Successfully added file '{file_name}' with {len(chunk_ids)} chunks")
-    return len(chunk_ids)
+    return {
+        "chunks_added": len(chunk_ids),
+        "file_id": str(file_doc["_id"])
+    }
 
 def delete_file(agent_id, file_id, user_id=None):
     """Remove specific file and its chunks with security check."""
