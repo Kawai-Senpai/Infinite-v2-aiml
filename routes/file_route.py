@@ -4,7 +4,7 @@ from database.mongo import client as mongo_client
 from bson import ObjectId
 from utilities.save_json import convert_objectid_to_str
 from errors.error_logger import log_exception_with_request
-from rag.file_management import delete_file, get_all_files_for_agent, get_all_collections_for_agent, get_all_files_for_collection
+from rag.file_management import delete_file, get_all_files_for_agent, get_all_collections_for_agent, get_all_files_for_collection, to_obj  # Add to_obj import
 
 router = APIRouter()
 
@@ -131,3 +131,32 @@ async def retrieve_all_files_for_collection(
             "message": "Failed to retrieve collection files.",
             "error": str(e)
         })
+
+@router.get("/files/get/{file_id}")
+async def get_file(file_id: str, request: Request, user_id: str = None):
+    """Get file details by ID with optional user verification."""
+    try:
+        file_id_obj = to_obj(file_id)  # Now we can use to_obj
+        files_collection = mongo_client.ai.files
+        file_details = files_collection.find_one({"_id": file_id_obj})
+        
+        if not file_details:
+            raise HTTPException(status_code=404, detail="File not found")
+            
+        # If user_id provided, verify ownership through agent
+        if user_id:
+            agent = mongo_client.ai.agents.find_one({"_id": file_details["agent_id"]})
+            if not agent or "user_id" not in agent or str(agent["user_id"]) != str(user_id):
+                raise HTTPException(status_code=403, detail="Not authorized to access this file")
+        
+        # Convert ObjectIds to strings for JSON serialization
+        file_details["_id"] = str(file_details["_id"])
+        file_details["agent_id"] = str(file_details["agent_id"])
+        if "user_id" in file_details:
+            file_details["user_id"] = str(file_details["user_id"])
+            
+        return file_details
+        
+    except Exception as e:
+        log_exception_with_request(e, get_file, request)
+        raise HTTPException(status_code=500, detail=str(e))
