@@ -308,7 +308,8 @@ def chat(
                     "tool_results": tool_results,
                     "tools_used": tool_used,
                     "tools_not_used": tool_not_used,
-                    "memories_used": memory_items
+                    "memories_used": memory_items,
+                    "context_results": context_results 
                 }
                 return handle_stream_response(session_id, response, metadata=tool_info)
             else:
@@ -327,12 +328,13 @@ def chat(
                 final_response = "No response generated"
                 
             if include_rich_response:
-                # NEW: Define tool_info for non-stream branch
+                # Define tool_info for non-stream branch
                 tool_info = {
                     "tool_results": tool_results,
                     "tools_used": tool_used,
                     "tools_not_used": tool_not_used,
-                    "memories_used": memory_items
+                    "memories_used": memory_items,
+                    "context_results": context_results  # Add context results here
                 }
                 update_session_history(session_id, "assistant", final_response, metadata=tool_info)
             else:
@@ -344,7 +346,8 @@ def chat(
                     "tool_results": tool_results,
                     "tools_used": tool_used,
                     "tools_not_used": tool_not_used,
-                    "memories_used": memory_items
+                    "memories_used": memory_items,
+                    "context_results": context_results  # Add context results here
                 }
             else:
                 return final_response
