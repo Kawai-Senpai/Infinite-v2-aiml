@@ -174,6 +174,9 @@ def get_agent(agent_id, user_id=None):
         agent["created_at"] = convert_objectid_to_str(agent["created_at"])
     if "updated_at" in agent:
         agent["updated_at"] = convert_objectid_to_str(agent["updated_at"])
+    # Convert files ObjectId to string
+    if "files" in agent:
+        agent["files"] = [convert_objectid_to_str(file) for file in agent["files"]]
     return agent
 
 def get_available_tools():
