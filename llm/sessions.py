@@ -222,3 +222,109 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
         if "agent_id" in s:
             s["agent_id"] = convert_objectid_to_str(s["agent_id"])
     return sessions
+
+#! Team session functions ---------------------------------------------------
+def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: str = None, session_type: str = "team") -> str:
+    """Create a new team chat session for multiple agents."""
+    db = mongo_client.ai
+    
+    valid_session_types = ["team", "team-managed", "team-flow"]
+    if session_type not in valid_session_types:
+        raise ValueError(f"Invalid session type. Must be one of: {valid_session_types}")
+
+    # Validate agents exist and user has access
+    agents = []
+    for agent_id in agent_ids:
+        agent = db.agents.find_one({"_id": ObjectId(agent_id)})
+        if not agent:
+            raise ValueError(f"Agent {agent_id} not found")
+        
+        # Access control validation for private agents
+        if agent.get("agent_type") == "private" and user_id:
+            if "user_id" not in agent or str(agent["user_id"]) != user_id:
+                raise ValueError(f"Not authorized to use private agent {agent_id}")
+        
+        agents.append({
+            "agent_id": str(agent["_id"]),
+            "agent_name": agent.get("name", f"Agent {agent_id}")
+        })
+    
+    session_doc = {
+        "session_type": session_type,
+        "team_agents": agents,  # Store both ID and name
+        "history": [],
+        "max_context_results": max_context_results,
+        "created_at": datetime.now(timezone.utc)
+    }
+    if user_id:
+        session_doc["user_id"] = str(user_id)
+    
+    result = db.sessions.insert_one(session_doc)
+    return str(result.inserted_id)
+
+def get_team_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
+    """Get paginated chat history for a team session with agent names."""
+    db = mongo_client.ai
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        raise ValueError("Session not found")
+    if session.get("session_type") != "team":
+        raise ValueError("Not a team session")
+    if user_id and "user_id" in session and session["user_id"] != user_id:
+        raise ValueError("Not authorized to view this session")
+    
+    # Sort history by timestamp
+    history = sorted(
+        session.get("history", []),
+        key=lambda x: str(x.get("timestamp", "")),
+        reverse=False
+    )
+    
+    total = len(history)
+    paginated_history = history[skip:skip + limit]
+    
+    return {
+        "history": paginated_history,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+def update_team_session_history(session_id: str, agent_id: str, role: str, content: str, metadata: dict = None, user_id: str = None, summary: bool = False):
+    """Add message to team session history."""
+    db = mongo_client.ai
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        raise ValueError("Session not found")
+    if session.get("session_type") != "team":
+        raise ValueError("Not a team session")
+    if user_id and "user_id" in session and session["user_id"] != user_id:
+        raise ValueError("Not authorized to update this session")
+    
+    # Find agent name if agent_id is provided
+    agent_name = None
+    if agent_id:
+        for agent in session.get("team_agents", []):
+            if agent["agent_id"] == str(agent_id):
+                agent_name = agent["agent_name"]
+                break
+    
+    entry = {
+        "role": role,
+        "content": content,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if agent_id:
+        entry["agent_id"] = str(agent_id)
+    if agent_name:
+        entry["agent_name"] = agent_name
+    if metadata:
+        entry["metadata"] = metadata
+    if summary:
+        entry["type"] = "summary"
+    
+    db.sessions.update_one(
+        {"_id": ObjectId(session_id)},
+        {"$push": {"history": entry}}
+    )

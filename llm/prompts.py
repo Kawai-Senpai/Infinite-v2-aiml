@@ -89,6 +89,23 @@ Rules:
 - Your output should be in parsable proper JSON format like the given example.
 """
 
+def make_summary_prompt(conversation_text: str) -> str:
+    return f"""In this conversation multiple agents are discussing a topic and trying to find a solution. After they have finished, you need to give the final verdict or solution.
+Please read the following conversation and provide a concise summary capturing the key points and learnings.
+Ensure that your answer is valid, parsable JSON with exactly one key "summary", like this:
+{{ "summary": "This is the summary." }}
+
+Conversation:
+{conversation_text}
+
+Rules:
+- Do not include any additional keys or text.
+- Only output valid JSON with the summary.
+- Do not include any acklowledgement of the conversation or any other text. Only the summary, directly.
+- Highlight what we can learn from the conversation and the key points.
+- Give the final solution or conclusion if there is any.
+"""
+
 def format_tool_response(tool_response: str) -> str:
     """Format tool response for inclusion in context"""
     return f"\n\nTool response: {tool_response}" if tool_response else ""
@@ -96,3 +113,47 @@ def format_tool_response(tool_response: str) -> str:
 def format_system_message(prompt: str, context: str, tool_response: str) -> str:
     """Format the complete system message"""
     return prompt + context + format_tool_response(tool_response)
+
+#! Team Chat -------------------------------------------------------------------
+def make_agent_decider_prompt_managed(message, all_agents):
+    agents_str = str(all_agents)
+    return f"""This is a user message. You are a decider agent. You need to decide which agent should respond to this message. and in which order. 
+Theses are the available agents: {agents_str}
+
+This is the user's message: "{message}"
+
+Your output should look like this (example):
+{{
+    "agent_order": ["agent_id1", "agent_id2", "agent_id3"]
+}}
+
+Rules:
+- Only include the agent IDs in the order you want them to respond.
+- You can include all agents or only a subset of agents.
+- You can include the same agent multiple times if you want them to respond multiple times.
+- You can include the agents in any order you want them to respond.
+- Your output should be in parsable proper JSON format like the given example.
+- Remember, the agent order matters. The first agent will respond first, then the second based on the first's response, and so on.
+"""
+
+def make_agent_decider_prompt_flow(chat_history, all_agents):
+    agents_str = str(all_agents)
+    return f"""Based on the previous conversation, decide which agent should respond next. 
+Available agents: {agents_str}
+
+Previous conversation:
+{chat_history}
+
+Your output should look like this (example):
+{{
+    "next_agent": "agent_id1"
+}}
+
+Rules:
+- Return exactly ONE agent ID that should respond next.
+- Base your decision on the conversation context and what would be most helpful next.
+- Your output should be in parsable proper JSON format like the given example.
+- If you can't decide or no more responses needed, return empty string as agent_id.
+- If you want to end the conversation, return empty string as agent_id. as "next_agent": ""
+- End the conversation when you think it is complete or no more responses are needed or a conclusion is reached or too many responses are given or the conversation is going off-topic or the problem is unsolvable.
+"""

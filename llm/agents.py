@@ -270,7 +270,7 @@ def update_agent(agent_id, user_id=None, **updates):
 
     # Fields that can be updated
     allowed_updates = {
-        "name", "role", "capabilities", "rules", "agent_type"
+        "role", "capabilities", "rules", "agent_type"
     }
 
     # Filter out any updates that aren't in allowed_updates
