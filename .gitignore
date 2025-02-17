@@ -1,5 +1,4 @@
 #! Ignore
-test.py
 debug/*
 cache/*
 .env.development

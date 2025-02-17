@@ -80,7 +80,7 @@ def chat_with_openai_sync(agent_id: str, messages: list):
         )
         return str(response.choices[0].message.content)
     except Exception as e:
-        log.error(f"OpenAI chat error: {e}")
+        log.error("OpenAI chat error: %s", str(e))
         raise
 
 def chat_with_openai_stream(agent_id: str, messages: list):
@@ -209,7 +209,7 @@ def chat(
         # Keep only role and content fields, remove timestamps
         messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
     except Exception as e:
-        log.error("Error getting recent history: %s", e)
+        log.error("Error getting recent history: %s", str(e))
         messages = []
 
     # Parallel execution of tool analysis and memory analysis
@@ -233,7 +233,7 @@ def chat(
             tool_not_used = tool_metadata.get("not_used", [])
             tool_results = tool_metadata.get("results", [])
     except Exception as e:
-        log.error("Error analyzing tools and memory: %s", e)
+        log.error("Error analyzing tools and memory: %s", str(e))
         tool_text = ""
         tool_metadata = {}
         tool_used = []
@@ -244,7 +244,7 @@ def chat(
     try:
         context_results = get_relevant_context(agent_id, message, session_id) if use_rag else []
     except Exception as e:
-        log.error("Error getting context: %s", e)
+        log.error("Error getting context: %s", str(e))
         context_results = []
     
     try:
@@ -257,21 +257,21 @@ def chat(
     try:
         formatted_context = format_context(context_results, memory_items)
     except Exception as e:
-        log.error("Error formatting context: %s", e)
+        log.error("Error formatting context: %s", str(e))
         formatted_context = ""
 
     #* Format basic prompt
     try:
         prompt = make_basic_prompt(agent["name"], agent["role"], agent["capabilities"], agent["rules"])
     except Exception as e:
-        log.error("Error making basic prompt: %s", e)
+        log.error("Error making basic prompt: %s", str(e))
         prompt = ""
 
     #* Format system message
     try:
         system_message = format_system_message(prompt, formatted_context, tool_text)
     except Exception as e:
-        log.error("Error formatting system message: %s", e)
+        log.error("Error formatting system message: %s", str(e))
         system_message = ""
     
     # Make sure system message and messages are strings
@@ -289,7 +289,7 @@ def chat(
     try:
         update_session_history(session_id, "user", message)
     except Exception as e:
-        log.error("Error updating session history: %s", e)
+        log.error("Error updating session history: %s", str(e))
 
     try:
         # Route to appropriate chat function
@@ -354,7 +354,7 @@ def chat(
             else:
                 return final_response
     except Exception as e:
-        log.error(f"Chat error: {e}")
+        log.error("Chat error: %s", str(e))
         fallback_message = "I'm sorry, I'm taking a break right now. Please try again later."
         if stream:
             return handle_stream_response(session_id, stream_generator(fallback_message))
@@ -420,7 +420,7 @@ def each_team_agent_chat(
             processed_messages.append({"role": role, "content": content})
         messages = processed_messages
     except Exception as e:
-        log.error("Error getting recent history: %s", e)
+        log.error("Error getting recent history: %s", str(e))
         messages = []
     
     # If no new message was provided, extract the last message from history and use it.
@@ -449,7 +449,7 @@ def each_team_agent_chat(
             tool_not_used = tool_metadata.get("not_used", [])
             tool_results = tool_metadata.get("results", [])
     except Exception as e:
-        log.error("Error analyzing tools and memory: %s", e)
+        log.error("Error analyzing tools and memory: %s", str(e))
         tool_text = ""
         tool_metadata = {}
         tool_used = []
@@ -460,7 +460,7 @@ def each_team_agent_chat(
     try:
         context_results = get_relevant_context(agent_id, message, session_id) if use_rag else []
     except Exception as e:
-        log.error("Error getting context: %s", e)
+        log.error("Error getting context: %s", str(e))
         context_results = []
     
     try:
@@ -476,21 +476,21 @@ def each_team_agent_chat(
     try:
         formatted_context = format_context(context_results, memory_items)
     except Exception as e:
-        log.error("Error formatting context: %s", e)
+        log.error("Error formatting context: %s", str(e))
         formatted_context = ""
 
     #* Format basic prompt
     try:
         prompt = make_basic_prompt(agent["name"], agent["role"], agent["capabilities"], agent["rules"])
     except Exception as e:
-        log.error("Error making basic prompt: %s", e)
+        log.error("Error making basic prompt: %s", str(e))
         prompt = ""
 
     #* Format system message
     try:
         system_message = format_system_message(prompt, formatted_context, tool_text)
     except Exception as e:
-        log.error("Error formatting system message: %s", e)
+        log.error("Error formatting system message: %s", str(e))
         system_message = ""
     
     # Make sure system message and messages are strings
@@ -508,7 +508,7 @@ def each_team_agent_chat(
         try:
             update_team_session_history(session_id, agent_id, "user", message)
         except Exception as e:
-            log.error("Error updating session history: %s", e)
+            log.error("Error updating session history: %s", str(e))
 
     try:
         # Route to appropriate chat function
@@ -575,7 +575,7 @@ def each_team_agent_chat(
             else:
                 return final_response
     except Exception as e:
-        log.error(f"Chat error: {e}")
+        log.error("Chat error: %s", str(e))
         fallback_message = "I'm sorry, I'm taking a break right now. Please try again later."
         if stream:
             return handle_team_stream_response(session_id, agent_id, stream_generator(fallback_message))

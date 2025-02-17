@@ -46,7 +46,8 @@ async def chat_endpoint(
                     user_id=user_id,
                     include_rich_response=include_rich_response
                 ),
-                media_type='text/event-stream'
+                media_type='text/event-stream',
+                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
             )
         else:
             response = chat(
@@ -118,7 +119,8 @@ async def team_chat_endpoint(
                     user_id=user_id,
                     include_rich_response=include_rich_response
                 ),
-                media_type='text/event-stream'
+                media_type='text/event-stream',
+                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
             )
         else:
             response = chat_func(
