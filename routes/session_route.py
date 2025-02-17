@@ -10,7 +10,10 @@ from llm.sessions import (
     get_session,
     create_team_session,
     get_team_session_history,
-    update_team_session_history
+    update_team_session_history,
+    get_team_sessions_for_user,
+    get_standalone_sessions_for_user,
+    update_session_name
 )
 from errors.error_logger import log_exception_with_request
 
@@ -21,13 +24,15 @@ async def create_session_endpoint(
     request: Request,
     agent_id: str,
     max_context_results: int = 1,
+    name: str = None,          # new optional parameter
     user_id: str = None
 ):
     try:
         session_id = create_session(
             agent_id=agent_id,
             max_context_results=max_context_results,
-            user_id=user_id
+            user_id=user_id,
+            name=name           # pass optional name
         )
         return {
             "message": "Chat session created successfully.",
@@ -50,11 +55,18 @@ async def create_team_session_endpoint(
     request: Request,
     agent_ids: list = Body(...),
     max_context_results: int = 1,
+    name: str = None,              # Changed from Body(None) to parameter
     user_id: str = None,
     session_type: str = "team"
 ):
     try:
-        session_id = create_team_session(agent_ids, max_context_results, user_id, session_type)
+        session_id = create_team_session(
+            agent_ids=agent_ids,
+            max_context_results=max_context_results,
+            user_id=user_id,
+            session_type=session_type,
+            name=name                # Pass name as parameter
+        )
         return {
             "message": "Team session created successfully.",
             "session_id": session_id
@@ -243,6 +255,54 @@ async def list_user_sessions(
             "error": str(e)
         })
 
+@router.get("/get_all_team/{user_id}")
+async def list_user_team_sessions(
+    user_id: str,
+    request: Request,
+    limit: int = 20,
+    skip: int = 0,
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
+    try:
+        sessions = get_team_sessions_for_user(
+            user_id, limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order
+        )
+        return {
+            "message": "Team sessions retrieved successfully.",
+            "data": sessions
+        }
+    except Exception as e:
+        log_exception_with_request(e, list_user_team_sessions, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving team sessions.",
+            "error": str(e)
+        })
+
+@router.get("/get_all_standalone/{user_id}")
+async def list_user_standalone_sessions(
+    user_id: str,
+    request: Request,
+    limit: int = 20,
+    skip: int = 0,
+    sort_by: str = "created_at",
+    sort_order: int = -1
+):
+    try:
+        sessions = get_standalone_sessions_for_user(
+            user_id, limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order
+        )
+        return {
+            "message": "Standalone sessions retrieved successfully.",
+            "data": sessions
+        }
+    except Exception as e:
+        log_exception_with_request(e, list_user_standalone_sessions, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving standalone sessions.",
+            "error": str(e)
+        })
+
 @router.get("/get_by_agent/{agent_id}")
 async def list_agent_sessions(
     agent_id: str,
@@ -296,3 +356,19 @@ async def get_session_endpoint(
             "message": "Internal Server Error while retrieving session details.",
             "error": str(e)
         })
+
+@router.put("/rename/{session_id}")
+async def rename_session_endpoint(
+    session_id: str,
+    request: Request,
+    name: str,              # Changed from Body(...) to required parameter
+    user_id: str = None
+):
+    try:
+        update_session_name(session_id, name, user_id)
+        return {"message": "Session renamed successfully."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"message": "Failed to rename session.", "error": str(e)})
+    except Exception as e:
+        log_exception_with_request(e, rename_session_endpoint, request)
+        raise HTTPException(status_code=500, detail={"message": "Internal Server Error.", "error": str(e)})

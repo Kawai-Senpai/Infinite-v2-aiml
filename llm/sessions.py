@@ -15,8 +15,8 @@ log = logger('sessions_log',
             log_level=config.get("logging.development_level", "DEBUG") if environment == 'development' else config.get("logging.production_level", "INFO"))
 
 #! Chat session functions --------------------------------------------------
-def create_session(agent_id: str, max_context_results: int = 1, user_id: str = None) -> str:
-    """Create a new chat session for an agent with optional user ownership."""
+def create_session(agent_id: str, max_context_results: int = 1, user_id: str = None, name: str = None) -> str:
+    """Create a new chat session for an agent with optional user ownership and name."""
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     if not agent:
@@ -48,13 +48,28 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
         "agent_id": ObjectId(agent_id),
         "history": [],
         "max_context_results": max_context_results,
-        "created_at": datetime.now(timezone.utc)
+        "created_at": datetime.now(timezone.utc),
+        "name": name or "Untitled Session"  # Default name if none provided
     }
     if user_id:
         session_doc["user_id"] = str(user_id)  # Store as string
     
     result = db.sessions.insert_one(session_doc)
     return str(result.inserted_id)  # Return MongoDB's _id directly
+
+def update_session_name(session_id: str, new_name: str, user_id: str = None):
+    """Update the name of an existing session with security check."""
+    db = mongo_client.ai
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        raise ValueError("Session not found")
+    if user_id:
+        agent = db.agents.find_one({"_id": session["agent_id"]})
+        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
+            raise ValueError("Not authorized to update this session")
+    result = db.sessions.update_one({"_id": ObjectId(session_id)}, {"$set": {"name": new_name}})
+    if result.modified_count == 0:
+        raise ValueError("Failed to update session name")
 
 def delete_session(session_id: str, user_id: str = None):
     """Delete a chat session with security check."""
@@ -223,9 +238,58 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
             s["agent_id"] = convert_objectid_to_str(s["agent_id"])
     return sessions
 
+def get_team_sessions_for_user(
+    user_id: str,
+    limit: int = 20,
+    skip: int = 0,
+    sort_by: str = "created_at",
+    sort_order: int = -1
+) -> list:
+    """Return sessions with session_type in ['team', 'team-managed', 'team-flow']."""
+    db = mongo_client.ai
+    query = {
+        "user_id": str(user_id),
+        "session_type": {"$in": ["team", "team-managed", "team-flow"]}
+    }
+    sessions = list(db.sessions.find(query)
+                    .sort(sort_by, sort_order)
+                    .skip(skip)
+                    .limit(limit))
+    for s in sessions:
+        s["_id"] = convert_objectid_to_str(s["_id"])
+        if "agent_id" in s:
+            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+    return sessions
+
+def get_standalone_sessions_for_user(
+    user_id: str,
+    limit: int = 20,
+    skip: int = 0,
+    sort_by: str = "created_at",
+    sort_order: int = -1
+) -> list:
+    """Return sessions without a team session_type."""
+    db = mongo_client.ai
+    query = {
+        "user_id": str(user_id),
+        "$or": [
+            {"session_type": {"$exists": False}},
+            {"session_type": {"$nin": ["team", "team-managed", "team-flow"]}}
+        ]
+    }
+    sessions = list(db.sessions.find(query)
+                    .sort(sort_by, sort_order)
+                    .skip(skip)
+                    .limit(limit))
+    for s in sessions:
+        s["_id"] = convert_objectid_to_str(s["_id"])
+        if "agent_id" in s:
+            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+    return sessions
+
 #! Team session functions ---------------------------------------------------
-def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: str = None, session_type: str = "team") -> str:
-    """Create a new team chat session for multiple agents."""
+def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: str = None, session_type: str = "team", name: str = None) -> str:
+    """Create a new team chat session for multiple agents, with an optional name."""
     db = mongo_client.ai
     
     valid_session_types = ["team", "team-managed", "team-flow"]
@@ -254,7 +318,8 @@ def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: 
         "team_agents": agents,  # Store both ID and name
         "history": [],
         "max_context_results": max_context_results,
-        "created_at": datetime.now(timezone.utc)
+        "created_at": datetime.now(timezone.utc),
+        "name": name or "Untitled Team Session"  # Default name if none provided
     }
     if user_id:
         session_doc["user_id"] = str(user_id)
