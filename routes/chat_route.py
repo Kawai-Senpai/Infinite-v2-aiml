@@ -78,11 +78,11 @@ async def chat_endpoint(
 @router.post("/team/{session_id}")
 async def team_chat_endpoint(
     session_id: str,
-    message: str = Body(""),
-    stream: bool = Body(False),
-    use_rag: bool = Body(True),
-    include_rich_response: bool = Body(True),
-    user_id: Optional[str] = Body(None),
+    body: dict = Body(...),  # Change to accept dict instead of individual parameters
+    stream: bool = False,
+    use_rag: bool = True,
+    include_rich_response: bool = True,
+    user_id: Optional[str] = None,
     request: Request = None
 ):
     try:
@@ -94,6 +94,10 @@ async def team_chat_endpoint(
         session_type = session_doc.get("session_type")
         if not session_type or not session_type.startswith("team"):
             raise HTTPException(status_code=400, detail="Not a team session")
+
+        message = body.get("message", "")
+        if not message or not message.strip():
+            raise ValueError("Message is required and cannot be empty")
 
         if session_type == "team":
             chat_func = team_chat
@@ -107,21 +111,29 @@ async def team_chat_endpoint(
         if stream:
             return StreamingResponse(
                 chat_func(
-                    session_id, message,
-                    stream=True, use_rag=use_rag,
+                    session_id=session_id,
+                    message=message,
+                    stream=True,
+                    use_rag=use_rag,
                     user_id=user_id,
                     include_rich_response=include_rich_response
                 ),
                 media_type='text/event-stream'
             )
         else:
-            return chat_func(
-                session_id, message,
-                stream=False, use_rag=use_rag,
+            response = chat_func(
+                session_id=session_id,
+                message=message,
+                stream=False,
+                use_rag=use_rag,
                 user_id=user_id,
                 include_rich_response=include_rich_response
             )
+            # Ensure we return a valid JSON response
+            return {"status": "success", "data": response}
 
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         log_exception_with_request(e, request)
         raise HTTPException(status_code=500, detail=str(e))
