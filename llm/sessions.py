@@ -32,10 +32,10 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
         # For approved agents, verify approval status
         elif agent_type == "approved":
             pass  # Approved agents are accessible to all
-        # For public agents, check if they're actually public
+        # For public agents, verify approval status
         elif agent_type == "public":
             pass  # Public agents are accessible to all
-        # For system agents, verify they're actually system agents
+        # For system agents, verify system agent status
         elif agent_type == "system":
             pass  # System agents are accessible to all
         else:
@@ -122,10 +122,10 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     full_history = sorted(
         session_data.get("history", []),
         key=lambda x: str(x.get("timestamp", "")),
-        reverse=True
+        reverse=False # oldest first
     )
     
-    session_data["history"] = full_history[skip:skip + limit]
+    session_data["history"] = full_history[-(skip + limit): None if skip == 0 else -skip]
     session_data["history_metadata"] = {
         "total": len(full_history),
         "skip": skip,
@@ -155,7 +155,9 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
         reverse=False  # Change to False to get oldest first
     )
     total = len(history)
-    paginated_history = history[skip:skip + limit]
+    # Slice from the bottom so that the slice represents the most recent messages,
+    # but they remain in ascending order (oldest of the latest first)
+    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
     
     return {
         "history": paginated_history,
@@ -208,7 +210,7 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     )
     
     total = len(history)
-    paginated_history = history[skip:skip + limit]
+    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
     
     return {
         "history": paginated_history,
@@ -362,7 +364,7 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
     )
     
     total = len(history)
-    paginated_history = history[skip:skip + limit]
+    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
     
     return {
         "history": paginated_history,
