@@ -64,7 +64,7 @@ def update_session_name(session_id: str, new_name: str, user_id: str = None):
     if not session:
         raise ValueError("Session not found")
     if user_id:
-        agent = db.agents.find_one({"_id": session["agent_id"]})
+        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to update this session")
     result = db.sessions.update_one({"_id": ObjectId(session_id)}, {"$set": {"name": new_name}})
@@ -78,7 +78,7 @@ def delete_session(session_id: str, user_id: str = None):
     if not session:
         raise ValueError("Session not found")
     if user_id:
-        agent = db.agents.find_one({"_id": session["agent_id"]})
+        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to delete this session")
     result = db.sessions.delete_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
@@ -88,30 +88,46 @@ def delete_session(session_id: str, user_id: str = None):
 def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
     """Get details of a single session with security check and paginated history."""
     db = mongo_client.ai
-    session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
+    session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session["agent_id"]})
+        
+    # Check user authorization
+    if user_id and "user_id" in session and session["user_id"] != user_id:
+        raise ValueError("Not authorized to view this session")
+    
+    # TODO: Add agent authorization check for team sessions
+    # For regular sessions, check agent authorization if agent_id exists
+    agent_id = session.get("agent_id")
+    if agent_id and user_id:
+        agent = db.agents.find_one({"_id": agent_id})
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
     
-    # Get full history and sort by timestamp descending
+    # Create a copy and handle conversions
+    session_data = dict(session)
+    session_data["_id"] = convert_objectid_to_str(session_data["_id"])
+    
+    # Safely convert agent_id if it exists
+    if session_data.get("agent_id"):
+        session_data["agent_id"] = convert_objectid_to_str(session_data["agent_id"])
+    
+    # Convert team_agents if they exist
+    if session_data.get("team_agents"):
+        for agent in session_data["team_agents"]:
+            if agent.get("agent_id"):
+                agent["agent_id"] = convert_objectid_to_str(agent["agent_id"])
+    
+    # Sort and paginate history
     full_history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
+        session_data.get("history", []),
+        key=lambda x: str(x.get("timestamp", "")),
         reverse=True
     )
-    total_messages = len(full_history)
     
-    # Create a copy of the session document and modify the history
-    session_data = dict(session)
-    session_data["_id"] = convert_objectid_to_str(session_data["_id"])  # CONVERT _id
-    if "agent_id" in session_data:
-        session_data["agent_id"] = convert_objectid_to_str(session_data["agent_id"])
     session_data["history"] = full_history[skip:skip + limit]
     session_data["history_metadata"] = {
-        "total": total_messages,
+        "total": len(full_history),
         "skip": skip,
         "limit": limit
     }
@@ -125,7 +141,7 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     if not session:
         raise ValueError("Session not found")
     if user_id:
-        agent = db.agents.find_one({"_id": session["agent_id"]})
+        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
     
@@ -155,7 +171,7 @@ def update_session_history(session_id: str, role: str, content: str, metadata: d
     if not session:
         raise ValueError("Session not found")
     if user_id:
-        agent = db.agents.find_one({"_id": session["agent_id"]})
+        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to update this session")
     entry = {
@@ -177,7 +193,7 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     if not session:
         raise ValueError("Session not found")
     if user_id:
-        agent = db.agents.find_one({"_id": session["agent_id"]})
+        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
         if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
             raise ValueError("Not authorized to view this session")
     
