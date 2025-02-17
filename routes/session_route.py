@@ -8,6 +8,9 @@ from llm.sessions import (
     get_all_sessions_for_user,
     get_agent_sessions_for_user,
     get_session,
+    create_team_session,
+    get_team_session_history,
+    update_team_session_history
 )
 from errors.error_logger import log_exception_with_request
 
@@ -39,6 +42,32 @@ async def create_session_endpoint(
         log_exception_with_request(e, create_session_endpoint, request)
         raise HTTPException(status_code=500, detail={
             "message": "Internal Server Error while creating session.",
+            "error": str(e)
+        })
+
+@router.post("/team/create")
+async def create_team_session_endpoint(
+    request: Request,
+    agent_ids: list = Body(...),
+    max_context_results: int = 1,
+    user_id: str = None,
+    session_type: str = "team"
+):
+    try:
+        session_id = create_team_session(agent_ids, max_context_results, user_id, session_type)
+        return {
+            "message": "Team session created successfully.",
+            "session_id": session_id
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={
+            "message": "Failed to create team session.",
+            "error": str(e)
+        })
+    except Exception as e:
+        log_exception_with_request(e, create_team_session_endpoint, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while creating team session.",
             "error": str(e)
         })
 
@@ -91,6 +120,32 @@ async def get_history_endpoint(
             "error": str(e)
         })
 
+@router.get("/team/history/{session_id}")
+async def get_team_session_history_endpoint(
+    session_id: str,
+    request: Request,
+    user_id: str = None,
+    limit: int = 20,
+    skip: int = 0
+):
+    try:
+        history = get_team_session_history(session_id, user_id, limit, skip)
+        return {
+            "message": "Team session history retrieved successfully.",
+            "data": history
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={
+            "message": "Failed to retrieve team session history.",
+            "error": str(e)
+        })
+    except Exception as e:
+        log_exception_with_request(e, get_team_session_history_endpoint, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while retrieving team session history.",
+            "error": str(e)
+        })
+
 @router.post("/history/update/{session_id}")
 async def update_history_endpoint(
     session_id: str,
@@ -112,6 +167,31 @@ async def update_history_endpoint(
         log_exception_with_request(e, update_history_endpoint, request)
         raise HTTPException(status_code=500, detail={
             "message": "Internal Server Error while updating session history.",
+            "error": str(e)
+        })
+
+@router.post("/team/history/update/{session_id}")
+async def update_team_session_history_endpoint(
+    session_id: str,
+    request: Request,
+    agent_id: str = Body(None),
+    role: str = Body(...),
+    content: str = Body(...),
+    user_id: str = None,
+    summary: bool = False
+):
+    try:
+        update_team_session_history(session_id, agent_id, role, content, user_id=user_id, summary=summary)
+        return {"message": "Team session history updated successfully."}
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail={
+            "message": "Failed to update team session history.",
+            "error": str(e)
+        })
+    except Exception as e:
+        log_exception_with_request(e, update_team_session_history_endpoint, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while updating team session history.",
             "error": str(e)
         })
 
