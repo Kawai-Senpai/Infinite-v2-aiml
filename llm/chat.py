@@ -415,9 +415,9 @@ def each_team_agent_chat(
             content = msg["content"]
             agent_name = msg.get("agent_name")
             if msg.get("type") == "summary":
-                content = f"Summary: {content}"
+                content = f"[Summary]: {content}"
             elif agent_name:
-                content = f"{agent_name}: {content}"  # Modification point as requested
+                content = f"[{agent_name}]: {content}"  # Modification point as requested
             processed_messages.append({"role": role, "content": content})
         messages = processed_messages
     except Exception as e:
@@ -617,6 +617,7 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
         conversation_lines = []
         i = 0
         for agent in team_agents:
+            
             agent_id = agent["agent_id"]
             agent_name = agent.get("agent_name", f"Agent {agent_id}")
 
@@ -632,8 +633,8 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
                 system_msg_injection=system_prompt_injection
             )
             i += 1
-            responses[agent_name] = response
-            conversation_lines.append(f"[{agent_name}]: {response}")
+            responses[agent_id] = response
+            conversation_lines.append(f"[Agent {agent_id}] : {response}")
         conversation = "\n".join(conversation_lines)
 
         history_response = get_team_session_history(session_id, user_id, limit=i + 1)
@@ -650,6 +651,7 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
                 
                 agent_id = agent["agent_id"]
                 agent_name = agent.get("agent_name", f"Agent {agent_id}")
+                
                 system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
                 response_gen = each_team_agent_chat(
                     agent_id=agent_id,
@@ -746,8 +748,8 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
                 include_rich_response=include_rich_response,
                 system_msg_injection=system_prompt_injection
             )
-            responses[agent_info.get("agent_name", f"Agent {agent_id}")] = response
-            conversation_lines.append(f"[{agent_info.get('agent_name', f'Agent {agent_id}')}] : {response}")
+            responses[agent_id] = response
+            conversation_lines.append(f"[Agent {agent_id}] : {response}")
         conversation = "\n".join(conversation_lines)
 
         # Update summary from team session history
@@ -866,8 +868,8 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
                 system_msg_injection=system_prompt_injection
             )
             
-            responses[agent_info.get("agent_name", f"Agent {next_agent}")] = response
-            conversation_lines.append(f"[{agent_info.get('agent_name', f'Agent {next_agent}')}]: {response}")
+            responses[next_agent] = response
+            conversation_lines.append(f"[Agent {next_agent}] : {response}")
 
         conversation = "\n".join(conversation_lines)
         
