@@ -83,16 +83,6 @@ def delete_session(session_id: str, user_id: str = None):
         raise ValueError("Session not found")
     db.history.delete_many({"session_id": ObjectId(session_id)})  # Clean up related history
 
-def _convert_object_ids_recursive(obj):
-    """Recursively convert ObjectIds to strings in dicts/lists."""
-    if isinstance(obj, dict):
-        return {k: _convert_object_ids_recursive(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_convert_object_ids_recursive(item) for item in obj]
-    elif isinstance(obj, ObjectId):
-        return str(obj)
-    return obj
-
 def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
     """Get details of a single session with security check and paginated history."""
     db = mongo_client.ai
@@ -140,8 +130,6 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
         "limit": limit
     }
     
-    # Convert any ObjectIds in the final session_doc
-    session_data = _convert_object_ids_recursive(session_data)
     return session_data
 
 def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
@@ -166,30 +154,9 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
                        .skip(skip)
                        .limit(limit))
     
-    # Convert ObjectIds to strings in history docs
-    for doc in history_docs:
-        if "_id" in doc:
-            doc["_id"] = convert_objectid_to_str(doc["_id"])
-        if "session_id" in doc:
-            doc["session_id"] = convert_objectid_to_str(doc["session_id"])
-        if "agent_id" in doc:
-            doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
-        # Handle metadata ObjectIds
-        if "metadata" in doc and isinstance(doc["metadata"], dict):
-            for key, value in doc["metadata"].items():
-                if isinstance(value, ObjectId):
-                    doc["metadata"][key] = convert_objectid_to_str(value)
-                elif isinstance(value, list):
-                    doc["metadata"][key] = [
-                        convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
-                        for item in value
-                    ]
-    
     # Reverse to maintain conversation flow
     history_docs.reverse()
     
-    # Convert all ObjectIds in history_docs
-    history_docs = _convert_object_ids_recursive(history_docs)
     return {
         "history": history_docs,
         "total": total,
@@ -235,25 +202,6 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
                     .sort("timestamp", -1)  # Most recent first
                     .skip(skip)
                     .limit(limit))
-    
-    # Convert ObjectIds to strings
-    for doc in history_docs:
-        if "_id" in doc:
-            doc["_id"] = convert_objectid_to_str(doc["_id"])
-        if "session_id" in doc:
-            doc["session_id"] = convert_objectid_to_str(doc["session_id"])
-        if "agent_id" in doc:
-            doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
-        # Handle metadata ObjectIds
-        if "metadata" in doc and isinstance(doc["metadata"], dict):
-            for key, value in doc["metadata"].items():
-                if isinstance(value, ObjectId):
-                    doc["metadata"][key] = convert_objectid_to_str(value)
-                elif isinstance(value, list):
-                    doc["metadata"][key] = [
-                        convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
-                        for item in value
-                    ]
     
     return {
         "history": history_docs,
@@ -405,25 +353,6 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
                        .skip(skip)
                        .limit(limit))
     
-    # Convert ObjectIds to strings in each history document
-    for doc in history_docs:
-        if "_id" in doc:
-            doc["_id"] = convert_objectid_to_str(doc["_id"])
-        if "session_id" in doc:
-            doc["session_id"] = convert_objectid_to_str(doc["session_id"])
-        if "agent_id" in doc:
-            doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
-        # Convert any other ObjectId fields in metadata if present
-        if "metadata" in doc and isinstance(doc["metadata"], dict):
-            for key, value in doc["metadata"].items():
-                if isinstance(value, ObjectId):
-                    doc["metadata"][key] = convert_objectid_to_str(value)
-                elif isinstance(value, list):
-                    doc["metadata"][key] = [
-                        convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
-                        for item in value
-                    ]
-    
     # Reverse to maintain conversation flow
     history_docs.reverse()
     
@@ -471,23 +400,3 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
         entry["type"] = "summary"
     
     db.history.insert_one(entry)  # Instead of pushing to sessions
-
-# Add the helper function to handle nested ObjectId conversions
-def convert_history_doc_objectids(doc: dict) -> dict:
-    """Convert all ObjectIds in a history document to strings."""
-    if "_id" in doc:
-        doc["_id"] = convert_objectid_to_str(doc["_id"])
-    if "session_id" in doc:
-        doc["session_id"] = convert_objectid_to_str(doc["session_id"])
-    if "agent_id" in doc:
-        doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
-    if "metadata" in doc and isinstance(doc["metadata"], dict):
-        for key, value in doc["metadata"].items():
-            if isinstance(value, ObjectId):
-                doc["metadata"][key] = convert_objectid_to_str(value)
-            elif isinstance(value, list):
-                doc["metadata"][key] = [
-                    convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
-                    for item in value
-                ]
-    return doc
