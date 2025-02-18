@@ -295,3 +295,28 @@ def update_agent(agent_id, user_id=None, **updates):
         raise ValueError("No changes were made to the agent")
 
     return True
+
+def search_agents(query: str, limit: int = 20, skip: int = 0):
+    """Search for agents (public, approved, or system) matching the query in name, role, capabilities or rules."""
+    from utilities.save_json import convert_objectid_to_str  # if not already imported
+    db = mongo_client.ai.agents
+    regex = {"$regex": query, "$options": "i"}
+    search_filter = {
+        "agent_type": {"$in": ["public", "approved", "system"]},
+        "$or": [
+            {"name": regex},
+            {"role": regex},
+            {"capabilities": regex},
+            {"rules": regex}
+        ]
+    }
+    agents = list(db.find(search_filter).skip(skip).limit(limit))
+    for agent in agents:
+        agent["_id"] = convert_objectid_to_str(agent["_id"])
+        if "created_at" in agent:
+            agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else str(agent["created_at"])
+        if "updated_at" in agent:
+            agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else str(agent["updated_at"])
+        if "files" in agent:
+            agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+    return agents

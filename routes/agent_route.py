@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Body
+from fastapi import APIRouter, HTTPException, Request, Body, Query  # ensure Query is imported
 from llm.agents import (
     create_agent,
     delete_agent,
@@ -9,7 +9,8 @@ from llm.agents import (
     get_all_agents_for_user,
     get_agent,
     get_available_tools,
-    get_all_nonprivate_agents_for_user
+    get_all_nonprivate_agents_for_user,
+    search_agents  # add import for search
 )
 from errors.error_logger import log_exception_with_request
 
@@ -247,5 +248,25 @@ async def list_available_tools(request: Request):
         log_exception_with_request(e, list_available_tools, request)
         raise HTTPException(status_code=500, detail={
             "message": "Internal Server Error while retrieving available tools.",
+            "error": str(e)
+        })
+
+@router.get("/search")
+async def search_agent(
+    request: Request,
+    query: str = Query(..., description="Search term for agent names, capabilities or rules"),
+    limit: int = 20,
+    skip: int = 0
+):
+    try:
+        agents = search_agents(query, limit, skip)
+        return {
+            "message": "Agents retrieved successfully.",
+            "data": agents
+        }
+    except Exception as e:
+        log_exception_with_request(e, search_agent, request)
+        raise HTTPException(status_code=500, detail={
+            "message": "Internal Server Error while searching agents.",
             "error": str(e)
         })
