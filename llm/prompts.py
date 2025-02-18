@@ -175,4 +175,9 @@ Rules:
 - If any of the other angets had asked anyone else to respond, then they should be the one to respond next, naturally. Same, if the user asked a question to a specific agent, that agent should respond next. If an agent asked a question to the user, you should end the conversation and let the user respond.
 - There are muliple agents in the conversation. You can find who replied when in the chat history by looking at each message prefix. Depending on it, you need to decide who should respond next.
 - In each message, the agent who replied is mentioned in the message prefix. using [agent_name]. 
+
+Important:
+- The goal of this is that, whenever the user asks a question, the agent will discuss it with the other agents on that topic.
+- So, if an agent or a group of agents has reached a conclusion, no need to continue the conversation. You can end it.
+- You can find [Summary] in the history, that summarizes a previous group discussion.
 """
