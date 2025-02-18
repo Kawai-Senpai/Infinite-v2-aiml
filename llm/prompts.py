@@ -115,6 +115,16 @@ def format_system_message(prompt: str, context: str, tool_response: str) -> str:
     return prompt + context + format_tool_response(tool_response)
 
 #! Team Chat -------------------------------------------------------------------
+def make_system_injection_prompt(all_agents, agent_name):
+    system_prompt_injection = f"""
+This is a team conversation with the following agents: {', '.join(all_agents)}. 
+Your are {agent_name}.
+
+Each message beginning with you name, since you are '{agent_name}' was said by you. Everything else was said by the other agents. Respond accordingly and talk to everyone or the user as needed.
+You can refer to the user seperately if you want.
+"""
+    return system_prompt_injection
+
 def make_agent_decider_prompt_managed(message, all_agents):
     agents_str = str(all_agents)
     return f"""This is a user message. You are a decider agent. You need to decide which agent should respond to this message. and in which order. 
@@ -156,4 +166,5 @@ Rules:
 - If you can't decide or no more responses needed, return empty string as agent_id.
 - If you want to end the conversation, return empty string as agent_id. as "next_agent": ""
 - End the conversation when you think it is complete or no more responses are needed or a conclusion is reached or too many responses are given or the conversation is going off-topic or the problem is unsolvable.
+- There are muliple agents in the conversation. You can find who replied when in the chat history by looking at each message prefix. Depending on it, you need to decide who should respond next.
 """

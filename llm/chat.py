@@ -6,7 +6,7 @@ from bson import ObjectId, errors
 from openai import OpenAI
 import cohere
 from typing import Generator
-from llm.prompts import format_context, make_basic_prompt, format_system_message
+from llm.prompts import format_context, make_basic_prompt, format_system_message, make_system_injection_prompt
 from database.chroma import search_documents
 from llm.sessions import update_session_history, get_recent_history
 from llm.tools import execute_tools  # Update import
@@ -395,7 +395,8 @@ def each_team_agent_chat(
     stream: bool = False,
     use_rag: bool = True,
     user_id: str = None,
-    include_rich_response: bool = True
+    include_rich_response: bool = True,
+    system_msg_injection: str = None
 ):
     # Save original message input
     provided_message = message
@@ -495,6 +496,11 @@ def each_team_agent_chat(
     
     # Make sure system message and messages are strings
     system_message = str(system_message)
+
+    # Inject system message if provided
+    if system_msg_injection:
+        system_message = system_message + "\n" + str(system_msg_injection)
+
     message = str(message)
 
     # Add system message and user message
@@ -600,6 +606,12 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
     if not team_agents:
         raise ValueError("No team agents found in session")
     
+    #all agents
+    all_agents_name = []
+    for agent in team_agents:
+        agent_name = agent.get("agent_name")
+        all_agents_name.append(agent_name)
+
     if not stream:
         responses = {}
         conversation_lines = []
@@ -607,6 +619,8 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
         for agent in team_agents:
             agent_id = agent["agent_id"]
             agent_name = agent.get("agent_name", f"Agent {agent_id}")
+
+            system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
             response = each_team_agent_chat(
                 agent_id=agent_id,
                 session_id=session_id,
@@ -614,7 +628,8 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
                 stream=False,
                 use_rag=use_rag,
                 user_id=user_id,
-                include_rich_response=include_rich_response
+                include_rich_response=include_rich_response,
+                system_msg_injection=system_prompt_injection
             )
             i += 1
             responses[agent_name] = response
@@ -632,15 +647,19 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
         def stream_generator_team():
             i = 0
             for agent in team_agents:
-                # Removed extra header yield, as each_team_agent_chat already provides it.
+                
+                agent_id = agent["agent_id"]
+                agent_name = agent.get("agent_name", f"Agent {agent_id}")
+                system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
                 response_gen = each_team_agent_chat(
-                    agent_id=agent["agent_id"],
+                    agent_id=agent_id,
                     session_id=session_id,
                     message=message if i == 0 else None,  # Only provide message to first agent
                     stream=True,
                     use_rag=use_rag,
                     user_id=user_id,
-                    include_rich_response=include_rich_response
+                    include_rich_response=include_rich_response,
+                    system_msg_injection=system_prompt_injection
                 )
                 i += 1
                 for chunk in response_gen:
@@ -684,6 +703,12 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
             full_team_agents.append(full_agent)
     if not full_team_agents:
         raise ValueError("Could not load full team agent details")
+    
+    #all agents
+    all_agents_name = []
+    for agent in team_agents:
+        agent_name = agent.get("agent_name")
+        all_agents_name.append(agent_name)
 
     # Create a reduced list containing only 'agent_id' and 'role'
     decision_agents = [{
@@ -707,7 +732,9 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
         for idx, agent_id in enumerate(agent_order):
             # Locate the agent's details for display purposes
             agent_info = next((a for a in team_agents if a["agent_id"] == agent_id), {"agent_name": f"Agent {agent_id}"})
-            # Only pass the message to the first agent if needed (logic can be adjusted)
+            agent_name = agent_info.get("agent_name", f"Agent {agent_id}")
+            system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
+
             agent_message = message if idx == 0 else None
             response = each_team_agent_chat(
                 agent_id=agent_id,
@@ -716,7 +743,8 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
                 stream=False,
                 use_rag=use_rag,
                 user_id=user_id,
-                include_rich_response=include_rich_response
+                include_rich_response=include_rich_response,
+                system_msg_injection=system_prompt_injection
             )
             responses[agent_info.get("agent_name", f"Agent {agent_id}")] = response
             conversation_lines.append(f"[{agent_info.get('agent_name', f'Agent {agent_id}')}] : {response}")
@@ -733,6 +761,11 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
     else:
         def stream_generator_team_managed():
             for idx, agent_id in enumerate(agent_order):
+
+                agent_info = next((a for a in team_agents if a["agent_id"] == agent_id), {"agent_name": f"Agent {agent_id}"})
+                agent_name = agent_info.get("agent_name", f"Agent {agent_id}")
+                system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
+
                 agent_message = message if idx == 0 else None
                 response_gen = each_team_agent_chat(
                     agent_id=agent_id,
@@ -741,7 +774,8 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
                     stream=True,
                     use_rag=use_rag,
                     user_id=user_id,
-                    include_rich_response=include_rich_response
+                    include_rich_response=include_rich_response,
+                    system_msg_injection=system_prompt_injection
                 )
                 for chunk in response_gen:
                     yield chunk
@@ -781,6 +815,12 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
             full_agent["agent_id"] = str(full_agent["_id"])
             full_team_agents.append(full_agent)
 
+    #all agents
+    all_agents_name = []
+    for agent in team_agents:
+        agent_name = agent.get("agent_name")
+        all_agents_name.append(agent_name)
+
     if not stream:
         responses = {}
         conversation_lines = []
@@ -807,9 +847,12 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
                 break  # No more agents needed to respond
             
             steps_taken += 1
+            
             # Find agent info for the selected agent
             agent_info = next((a for a in team_agents if a["agent_id"] == next_agent), 
                             {"agent_name": f"Agent {next_agent}"})
+            agent_name = agent_info.get("agent_name", f"Agent {agent_id}")
+            system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
             
             # Get agent's response
             response = each_team_agent_chat(
@@ -819,7 +862,8 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
                 stream=False,
                 use_rag=use_rag,
                 user_id=user_id,
-                include_rich_response=include_rich_response
+                include_rich_response=include_rich_response,
+                system_msg_injection=system_prompt_injection
             )
             
             responses[agent_info.get("agent_name", f"Agent {next_agent}")] = response
@@ -860,6 +904,13 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
                     break  # No more agents needed to respond
                 
                 steps_taken += 1
+
+                # Find agent info for the selected agent
+                agent_info = next((a for a in team_agents if a["agent_id"] == next_agent), 
+                                {"agent_name": f"Agent {next_agent}"})
+                agent_name = agent_info.get("agent_name", f"Agent {agent_id}")
+                system_prompt_injection = make_system_injection_prompt(all_agents_name, agent_name)
+
                 # Stream the next agent's response
                 response_gen = each_team_agent_chat(
                     agent_id=next_agent,
@@ -868,7 +919,8 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
                     stream=True,
                     use_rag=use_rag,
                     user_id=user_id,
-                    include_rich_response=include_rich_response
+                    include_rich_response=include_rich_response,
+                    system_msg_injection=system_prompt_injection
                 )
                 
                 for chunk in response_gen:
