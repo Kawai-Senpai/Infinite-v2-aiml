@@ -46,7 +46,6 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
     
     session_doc = {
         "agent_id": ObjectId(agent_id),
-        "history": [],
         "max_context_results": max_context_results,
         "created_at": datetime.now(timezone.utc),
         "name": name or "Untitled Session"  # Default name if none provided
@@ -82,6 +81,17 @@ def delete_session(session_id: str, user_id: str = None):
     result = db.sessions.delete_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if result.deleted_count == 0:
         raise ValueError("Session not found")
+    db.history.delete_many({"session_id": ObjectId(session_id)})  # Clean up related history
+
+def _convert_object_ids_recursive(obj):
+    """Recursively convert ObjectIds to strings in dicts/lists."""
+    if isinstance(obj, dict):
+        return {k: _convert_object_ids_recursive(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_object_ids_recursive(item) for item in obj]
+    elif isinstance(obj, ObjectId):
+        return str(obj)
+    return obj
 
 def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
     """Get details of a single session with security check and paginated history."""
@@ -111,20 +121,27 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
             if agent.get("agent_id"):
                 agent["agent_id"] = convert_objectid_to_str(agent["agent_id"])
     
-    # Sort and paginate history
-    full_history = sorted(
-        session_data.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),
-        reverse=False # oldest first
-    )
+    # Get total count first
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
     
-    session_data["history"] = full_history[-(skip + limit): None if skip == 0 else -skip]
+    # Get latest entries by sorting in descending order
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                       .sort("timestamp", -1)  # Changed to -1 for latest first
+                       .skip(skip)
+                       .limit(limit))
+    
+    # Reverse the results to maintain chronological order (oldest to newest)
+    history_docs.reverse()
+    
+    session_data["history"] = history_docs
     session_data["history_metadata"] = {
-        "total": len(full_history),
+        "total": total,
         "skip": skip,
         "limit": limit
     }
     
+    # Convert any ObjectIds in the final session_doc
+    session_data = _convert_object_ids_recursive(session_data)
     return session_data
 
 def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
@@ -139,19 +156,42 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     # Convert agent_id field if present
     if "agent_id" in session:
         session["agent_id"] = convert_objectid_to_str(session["agent_id"])
-    # Sort history by timestamp ascending (oldest first)
-    history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
-        reverse=False  # Change to False to get oldest first
-    )
-    total = len(history)
-    # Slice from the bottom so that the slice represents the most recent messages,
-    # but they remain in ascending order (oldest of the latest first)
-    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
     
+    # Get total count
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
+    
+    # Get latest entries
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                       .sort("timestamp", -1)  # Latest first
+                       .skip(skip)
+                       .limit(limit))
+    
+    # Convert ObjectIds to strings in history docs
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = convert_objectid_to_str(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = convert_objectid_to_str(doc["session_id"])
+        if "agent_id" in doc:
+            doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
+        # Handle metadata ObjectIds
+        if "metadata" in doc and isinstance(doc["metadata"], dict):
+            for key, value in doc["metadata"].items():
+                if isinstance(value, ObjectId):
+                    doc["metadata"][key] = convert_objectid_to_str(value)
+                elif isinstance(value, list):
+                    doc["metadata"][key] = [
+                        convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
+                        for item in value
+                    ]
+    
+    # Reverse to maintain conversation flow
+    history_docs.reverse()
+    
+    # Convert all ObjectIds in history_docs
+    history_docs = _convert_object_ids_recursive(history_docs)
     return {
-        "history": paginated_history,
+        "history": history_docs,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -166,19 +206,17 @@ def update_session_history(session_id: str, role: str, content: str, metadata: d
     if user_id and session.get("user_id") != user_id:
         raise ValueError("Not authorized to update this session")
     entry = {
+        "session_id": ObjectId(session_id),
         "role": role,
         "content": content,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
     if metadata:
         entry["metadata"] = metadata
-    db.sessions.update_one(
-        {"_id": ObjectId(session_id)},
-        {"$push": {"history": entry}}
-    )
+    db.history.insert_one(entry)  # Instead of pushing to sessions
 
 def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
-    """Get paginated recent chat history with security check."""
+    """Get paginated recent chat history with security check. Returns newest first."""
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
@@ -189,18 +227,36 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     # Convert agent_id field if present
     if "agent_id" in session:
         session["agent_id"] = convert_objectid_to_str(session["agent_id"])
-    # Sort history by timestamp ascending (oldest first) 
-    history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
-        reverse=False  # Change to False to get oldest first
-    )
     
-    total = len(history)
-    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
+    
+    # Already correct - keep newest first, don't reverse
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                    .sort("timestamp", -1)  # Most recent first
+                    .skip(skip)
+                    .limit(limit))
+    
+    # Convert ObjectIds to strings
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = convert_objectid_to_str(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = convert_objectid_to_str(doc["session_id"])
+        if "agent_id" in doc:
+            doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
+        # Handle metadata ObjectIds
+        if "metadata" in doc and isinstance(doc["metadata"], dict):
+            for key, value in doc["metadata"].items():
+                if isinstance(value, ObjectId):
+                    doc["metadata"][key] = convert_objectid_to_str(value)
+                elif isinstance(value, list):
+                    doc["metadata"][key] = [
+                        convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
+                        for item in value
+                    ]
     
     return {
-        "history": paginated_history,
+        "history": history_docs,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -250,7 +306,7 @@ def get_team_sessions_for_user(
     sort_by: str = "created_at",
     sort_order: int = -1
 ) -> list:
-    """Return sessions with session_type in ['team', 'team-managed', 'team-flow']."""
+    """Return sessions with session_type in ['team', 'team-managed', 'team-flow'].""" 
     db = mongo_client.ai
     query = {
         "user_id": str(user_id),
@@ -321,7 +377,6 @@ def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: 
     session_doc = {
         "session_type": session_type,
         "team_agents": agents,  # Store both ID and name
-        "history": [],
         "max_context_results": max_context_results,
         "created_at": datetime.now(timezone.utc),
         "name": name or "Untitled Team Session"  # Default name if none provided
@@ -342,18 +397,38 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
     if session.get("session_type") not in ["team", "team-managed", "team-flow"]:
         raise ValueError("Not a team session")
     
-    # Sort history by timestamp
-    history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),
-        reverse=False
-    )
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
     
-    total = len(history)
-    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
+    # Get latest entries
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                       .sort("timestamp", -1)  # Latest first
+                       .skip(skip)
+                       .limit(limit))
+    
+    # Convert ObjectIds to strings in each history document
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = convert_objectid_to_str(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = convert_objectid_to_str(doc["session_id"])
+        if "agent_id" in doc:
+            doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
+        # Convert any other ObjectId fields in metadata if present
+        if "metadata" in doc and isinstance(doc["metadata"], dict):
+            for key, value in doc["metadata"].items():
+                if isinstance(value, ObjectId):
+                    doc["metadata"][key] = convert_objectid_to_str(value)
+                elif isinstance(value, list):
+                    doc["metadata"][key] = [
+                        convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
+                        for item in value
+                    ]
+    
+    # Reverse to maintain conversation flow
+    history_docs.reverse()
     
     return {
-        "history": paginated_history,
+        "history": history_docs,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -380,6 +455,7 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
                 break
     
     entry = {
+        "session_id": ObjectId(session_id),
         "role": role,
         "content": content,
         "timestamp": datetime.now(timezone.utc).isoformat()
@@ -394,7 +470,24 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
     if summary:
         entry["type"] = "summary"
     
-    db.sessions.update_one(
-        {"_id": ObjectId(session_id)},
-        {"$push": {"history": entry}}
-    )
+    db.history.insert_one(entry)  # Instead of pushing to sessions
+
+# Add the helper function to handle nested ObjectId conversions
+def convert_history_doc_objectids(doc: dict) -> dict:
+    """Convert all ObjectIds in a history document to strings."""
+    if "_id" in doc:
+        doc["_id"] = convert_objectid_to_str(doc["_id"])
+    if "session_id" in doc:
+        doc["session_id"] = convert_objectid_to_str(doc["session_id"])
+    if "agent_id" in doc:
+        doc["agent_id"] = convert_objectid_to_str(doc["agent_id"])
+    if "metadata" in doc and isinstance(doc["metadata"], dict):
+        for key, value in doc["metadata"].items():
+            if isinstance(value, ObjectId):
+                doc["metadata"][key] = convert_objectid_to_str(value)
+            elif isinstance(value, list):
+                doc["metadata"][key] = [
+                    convert_objectid_to_str(item) if isinstance(item, ObjectId) else item 
+                    for item in value
+                ]
+    return doc

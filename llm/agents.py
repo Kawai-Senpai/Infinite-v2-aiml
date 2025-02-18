@@ -193,21 +193,34 @@ def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1)
     return agents
 
 def get_agent(agent_id, user_id=None):
-    """Return details of a single agent by agent_id; if user_id is given, restrict access to agents owned by that user."""
+    """Return details of a single agent by agent_id; if user_id is given, verify access rights based on agent type."""
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     if not agent:
         raise ValueError("Agent not found")
-    if user_id and ("user_id" in agent and agent["user_id"] != user_id):  # Direct string comparison
-        raise ValueError("Not authorized to view this agent")
+
+    # Access control validation
+    agent_type = agent.get("agent_type")
+    if user_id:
+        # For private agents, verify ownership
+        if agent_type == "private":
+            if "user_id" not in agent or str(agent["user_id"]) != user_id:
+                raise ValueError("Not authorized to view this private agent")
+        # For approved/public/system agents, allow access
+        elif agent_type in ["approved", "public", "system"]:
+            pass  # These types are accessible to all
+        else:
+            raise ValueError("Invalid agent type")
+
+    # Convert fields
     agent["_id"] = convert_objectid_to_str(agent["_id"])
     if "created_at" in agent:
         agent["created_at"] = agent["created_at"].isoformat() if hasattr(agent["created_at"], "isoformat") else convert_objectid_to_str(agent["created_at"])
     if "updated_at" in agent:
         agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
-    # Convert files ObjectId to string
     if "files" in agent:
         agent["files"] = [convert_objectid_to_str(file) for file in agent["files"]]
+    
     return agent
 
 def get_available_tools():
