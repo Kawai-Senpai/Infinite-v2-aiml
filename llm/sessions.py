@@ -77,10 +77,8 @@ def delete_session(session_id: str, user_id: str = None):
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to delete this session")
+    if user_id and session.get("user_id") != user_id:
+        raise ValueError("Not authorized to delete this session")
     result = db.sessions.delete_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if result.deleted_count == 0:
         raise ValueError("Session not found")
@@ -93,16 +91,11 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
         raise ValueError("Session not found")
         
     # Check user authorization
-    if user_id and "user_id" in session and session["user_id"] != user_id:
+    if user_id and session.get("user_id") != user_id:
         raise ValueError("Not authorized to view this session")
     
-    # TODO: Add agent authorization check for team sessions
     # For regular sessions, check agent authorization if agent_id exists
     agent_id = session.get("agent_id")
-    if agent_id and user_id:
-        agent = db.agents.find_one({"_id": agent_id})
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to view this session")
     
     # Create a copy and handle conversions
     session_data = dict(session)
@@ -140,10 +133,8 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to view this session")
+    if user_id and session.get("user_id") != user_id:
+        raise ValueError("Not authorized to view this session")
     
     # Convert agent_id field if present
     if "agent_id" in session:
@@ -172,10 +163,8 @@ def update_session_history(session_id: str, role: str, content: str, metadata: d
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to update this session")
+    if user_id and session.get("user_id") != user_id:
+        raise ValueError("Not authorized to update this session")
     entry = {
         "role": role,
         "content": content,
@@ -194,10 +183,8 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to view this session")
+    if user_id and session.get("user_id") != user_id:
+        raise ValueError("Not authorized to view this session")
     
     # Convert agent_id field if present
     if "agent_id" in session:
@@ -381,7 +368,7 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
         raise ValueError("Session not found")
     if session.get("session_type") != "team":
         raise ValueError("Not a team session")
-    if user_id and "user_id" in session and session["user_id"] != user_id:
+    if user_id and session.get("user_id") != user_id:
         raise ValueError("Not authorized to update this session")
     
     # Find agent name if agent_id is provided
