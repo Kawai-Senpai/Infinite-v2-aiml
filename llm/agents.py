@@ -296,13 +296,15 @@ def update_agent(agent_id, user_id=None, **updates):
 
     return True
 
-def search_agents(query: str, limit: int = 20, skip: int = 0):
-    """Search for agents (public, approved, or system) matching the query in name, role, capabilities or rules."""
-    from utilities.save_json import convert_objectid_to_str  # if not already imported
+def search_agents(query: str, limit: int = 20, skip: int = 0, types: list = None, sort_by: str = "created_at", sort_order: int = -1):
+    """Search for agents matching the query in name, role, capabilities or rules.
+    If types is provided and non-empty, filter by the given agent types.
+    The private type is always ignored.
+    Allows custom sorting.
+    """
     db = mongo_client.ai.agents
     regex = {"$regex": query, "$options": "i"}
     search_filter = {
-        "agent_type": {"$in": ["public", "approved", "system"]},
         "$or": [
             {"name": regex},
             {"role": regex},
@@ -310,7 +312,16 @@ def search_agents(query: str, limit: int = 20, skip: int = 0):
             {"rules": regex}
         ]
     }
-    agents = list(db.find(search_filter).skip(skip).limit(limit))
+    
+    # Always ignore private agents
+    if types is not None:
+        types = [t for t in types if t.lower() != "private"]
+    # If types not provided or emptied out, default to allowed types
+    if not types:
+        types = ["public", "approved", "system"]
+    search_filter["agent_type"] = {"$in": types}
+    
+    agents = list(db.find(search_filter).sort(sort_by, sort_order).skip(skip).limit(limit))
     for agent in agents:
         agent["_id"] = convert_objectid_to_str(agent["_id"])
         if "created_at" in agent:

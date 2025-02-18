@@ -256,10 +256,13 @@ async def search_agent(
     request: Request,
     query: str = Query(..., description="Search term for agent names, capabilities or rules"),
     limit: int = 20,
-    skip: int = 0
+    skip: int = 0,
+    types: list = Query([], description="Agent types to filter (e.g., public, private, approved, system)"),
+    sort_by: str = Query("created_at", description="Field to sort results by"),
+    sort_order: int = Query(-1, description="Sort order (-1 for descending, 1 for ascending)")
 ):
     try:
-        agents = search_agents(query, limit, skip)
+        agents = search_agents(query, limit, skip, types, sort_by, sort_order)
         return {
             "message": "Agents retrieved successfully.",
             "data": agents
