@@ -668,7 +668,7 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if session.get("session_type") != "team":
+    if session.get("session_type") != "team-managed":
         raise ValueError("Not a team session")
     team_agents = session.get("team_agents", [])
     if not team_agents:
@@ -766,7 +766,7 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if session.get("session_type") != "team":
+    if session.get("session_type") != "team-flow":
         raise ValueError("Not a team session")
     team_agents = session.get("team_agents", [])
     if not team_agents:

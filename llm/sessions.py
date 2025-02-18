@@ -338,10 +338,9 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if session.get("session_type") != "team":
+    # Modified check to allow team, team-managed, and team-flow sessions
+    if session.get("session_type") not in ["team", "team-managed", "team-flow"]:
         raise ValueError("Not a team session")
-    if user_id and "user_id" in session and session["user_id"] != user_id:
-        raise ValueError("Not authorized to view this session")
     
     # Sort history by timestamp
     history = sorted(
@@ -366,7 +365,8 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if session.get("session_type") != "team":
+    # Modified check to allow team, team-managed, and team-flow sessions
+    if session.get("session_type") not in ["team", "team-managed", "team-flow"]:
         raise ValueError("Not a team session")
     if user_id and session.get("user_id") != user_id:
         raise ValueError("Not authorized to update this session")

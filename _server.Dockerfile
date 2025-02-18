@@ -16,4 +16,4 @@ VOLUME ["/app/debug"]
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python _init.py && uvicorn _server:app --host 0.0.0.0 --port 8000 --workers 4"]
+CMD ["sh", "-c", "python _init.py && uvicorn _server:app --host 0.0.0.0 --port 8000 --workers 8"]

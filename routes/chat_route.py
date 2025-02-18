@@ -24,7 +24,8 @@ async def chat_endpoint(
         session_doc = db.sessions.find_one({"_id": ObjectId(session_id)})
         if not session_doc:
             raise HTTPException(status_code=404, detail="Session not found")
-        if session_doc.get("session_type") == "team":
+        # Updated check: trim and lower-case the session_type
+        if session_doc.get("session_type", "").strip().lower() == "team":
             raise HTTPException(
                 status_code=400,
                 detail="Cannot use /agent endpoint for team sessions"
@@ -92,8 +93,9 @@ async def team_chat_endpoint(
         if not session_doc:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        session_type = session_doc.get("session_type")
-        if not session_type or not session_type.startswith("team"):
+        # Updated check: trim and lower-case session_type before verifying it starts with "team"
+        session_type = session_doc.get("session_type", "").strip().lower()
+        if not session_type.startswith("team"):
             raise HTTPException(status_code=400, detail="Not a team session")
 
         message = body.get("message", "")

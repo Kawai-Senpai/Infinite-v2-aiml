@@ -167,7 +167,7 @@ async def update_history_endpoint(
     user_id: str = None
 ):
     try:
-        update_session_history(session_id, role, content, user_id)
+        update_session_history(session_id, role, content, user_id=user_id)  # Fixed call: pass user_id as keyword argument
         return {"message": "Session history updated successfully."}
     except ValueError as e:
         code = 403 if "Not authorized" in str(e) else 404
