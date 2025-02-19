@@ -361,8 +361,8 @@ async def get_session_endpoint(
 @router.put("/rename/{session_id}")
 async def rename_session_endpoint(
     session_id: str,
-    request: Request,
-    name: str,              # Changed from Body(...) to required parameter
+    request: Request,  # Add request parameter
+    name: str,
     user_id: str = None
 ):
     try:
@@ -371,7 +371,7 @@ async def rename_session_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"message": "Failed to rename session.", "error": str(e)})
     except Exception as e:
-        log_exception_with_request(e, rename_session_endpoint, request)
+        log_exception_with_request(e, rename_session_endpoint, request)  # Add logging
         raise HTTPException(status_code=500, detail={"message": "Internal Server Error.", "error": str(e)})
 
 @router.get("/get/{session_id}")
@@ -379,7 +379,8 @@ async def get_session_details(
     session_id: str,
     limit: int = Query(20, ge=1),
     skip: int = Query(0, ge=0),
-    user_id: Optional[str] = None
+    user_id: Optional[str] = None,
+    request: Request = None  # Add request parameter
 ):
     try:
         session_data = get_session(session_id, user_id=user_id, limit=limit, skip=skip)
@@ -389,4 +390,5 @@ async def get_session_details(
     except HTTPException:
         raise
     except Exception as e:
+        log_exception_with_request(e, get_session_details, request)  # Add logging
         raise HTTPException(status_code=500, detail=str(e))

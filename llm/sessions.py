@@ -4,7 +4,13 @@ from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 from keys.keys import environment
-from utilities.save_json import convert_objectid_to_str  # NEW IMPORT
+from utilities.save_json import convert_objectid_to_str
+
+# NEW HELPER: safely converts an id to string.
+def safe_convert_id(value):
+    if isinstance(value, ObjectId):
+        return convert_objectid_to_str(value)
+    return str(value)
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -98,17 +104,17 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     
     # Create a copy and handle conversions
     session_data = dict(session)
-    session_data["_id"] = convert_objectid_to_str(session_data["_id"])
+    session_data["_id"] = safe_convert_id(session_data["_id"])
     
     # Safely convert agent_id if it exists
     if session_data.get("agent_id"):
-        session_data["agent_id"] = convert_objectid_to_str(session_data["agent_id"])
+        session_data["agent_id"] = safe_convert_id(session_data["agent_id"])
     
     # Convert team_agents if they exist
     if session_data.get("team_agents"):
         for agent in session_data["team_agents"]:
             if agent.get("agent_id"):
-                agent["agent_id"] = convert_objectid_to_str(agent["agent_id"])
+                agent["agent_id"] = safe_convert_id(agent["agent_id"])
     
     # Get total count first
     total = db.history.count_documents({"session_id": ObjectId(session_id)})
@@ -121,6 +127,11 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     
     # Reverse the results to maintain chronological order (oldest to newest)
     history_docs.reverse()
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     session_data["history"] = history_docs
     session_data["history_metadata"] = {
@@ -142,7 +153,7 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     
     # Convert agent_id field if present
     if "agent_id" in session:
-        session["agent_id"] = convert_objectid_to_str(session["agent_id"])
+        session["agent_id"] = safe_convert_id(session["agent_id"])
     
     # Get total count
     total = db.history.count_documents({"session_id": ObjectId(session_id)})
@@ -155,6 +166,11 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     
     # Reverse to maintain conversation flow
     history_docs.reverse()
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     return {
         "history": history_docs,
@@ -192,7 +208,7 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     
     # Convert agent_id field if present
     if "agent_id" in session:
-        session["agent_id"] = convert_objectid_to_str(session["agent_id"])
+        session["agent_id"] = safe_convert_id(session["agent_id"])
     
     total = db.history.count_documents({"session_id": ObjectId(session_id)})
     
@@ -201,6 +217,11 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
                     .sort("timestamp", -1)  # Most recent first
                     .skip(skip)
                     .limit(limit))
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     return {
         "history": history_docs,
@@ -217,9 +238,9 @@ def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort
                 .skip(skip)
                 .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])  # CONVERT _id
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
@@ -235,9 +256,9 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
                 .skip(skip)                
                 .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])  # CONVERT _id
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 def get_team_sessions_for_user(
@@ -258,9 +279,9 @@ def get_team_sessions_for_user(
                     .skip(skip)
                     .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 def get_standalone_sessions_for_user(
@@ -284,9 +305,9 @@ def get_standalone_sessions_for_user(
                     .skip(skip)
                     .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 #! Team session functions ---------------------------------------------------
@@ -334,20 +355,23 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    # Modified check to allow team, team-managed, and team-flow sessions
     if session.get("session_type") not in ["team", "team-managed", "team-flow"]:
         raise ValueError("Not a team session")
     
     total = db.history.count_documents({"session_id": ObjectId(session_id)})
     
-    # Get latest entries
     history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
-                       .sort("timestamp", -1)  # Latest first
-                       .skip(skip)
-                       .limit(limit))
+                    .sort("timestamp", -1)  # Latest first
+                    .skip(skip)
+                    .limit(limit))
     
-    # Reverse to maintain conversation flow
+    # Reverse to maintain conversation flow and convert ObjectId fields
     history_docs.reverse()
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     return {
         "history": history_docs,
