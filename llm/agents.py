@@ -141,7 +141,7 @@ def get_all_nonprivate_agents_for_user(user_id: str, limit=20, skip=0, sort_by="
             agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
     return agents
 
-def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1, user_id: str = None):
     """Return paginated and sorted list of public agents."""
     db = mongo_client.ai
     agents = list(db.agents.find({"agent_type": "public"})
@@ -156,9 +156,10 @@ def get_all_public_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1)
             agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
         if "files" in agent:
             agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+        agent["own"] = True if user_id and agent.get("user_id") and str(agent["user_id"]) == user_id else False
     return agents
 
-def get_all_approved_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+def get_all_approved_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1, user_id: str = None):
     """Return paginated and sorted list of approved agents."""
     db = mongo_client.ai
     agents = list(db.agents.find({"agent_type": "approved"})
@@ -173,9 +174,10 @@ def get_all_approved_agents(limit=20, skip=0, sort_by="created_at", sort_order=-
             agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
         if "files" in agent:
             agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+        agent["own"] = True if user_id and agent.get("user_id") and str(agent["user_id"]) == user_id else False
     return agents
 
-def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1):
+def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1, user_id: str = None):
     """Return paginated and sorted list of system agents."""
     db = mongo_client.ai
     agents = list(db.agents.find({"agent_type": "system"})
@@ -190,6 +192,7 @@ def get_all_system_agents(limit=20, skip=0, sort_by="created_at", sort_order=-1)
             agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else convert_objectid_to_str(agent["updated_at"])
         if "files" in agent:
             agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+        agent["own"] = True if user_id and agent.get("user_id") and str(agent["user_id"]) == user_id else False
     return agents
 
 def get_agent(agent_id, user_id=None):
@@ -309,7 +312,7 @@ def update_agent(agent_id, user_id=None, **updates):
 
     return True
 
-def search_agents(query: str, limit: int = 20, skip: int = 0, types: list = None, sort_by: str = "created_at", sort_order: int = -1):
+def search_agents(query: str, limit: int = 20, skip: int = 0, types: list = None, sort_by: str = "created_at", sort_order: int = -1, user_id: str = None):
     """Search for agents matching the query in name, role, capabilities or rules.
     If types is provided and non-empty, filter by the given agent types.
     The private type is always ignored.
@@ -343,4 +346,5 @@ def search_agents(query: str, limit: int = 20, skip: int = 0, types: list = None
             agent["updated_at"] = agent["updated_at"].isoformat() if hasattr(agent["updated_at"], "isoformat") else str(agent["updated_at"])
         if "files" in agent:
             agent["files"] = [convert_objectid_to_str(f) for f in agent["files"]]
+        agent["own"] = True if user_id and agent.get("user_id") and str(agent["user_id"]) == user_id else False
     return agents
