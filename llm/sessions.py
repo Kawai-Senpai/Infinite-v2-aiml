@@ -62,10 +62,9 @@ def update_session_name(session_id: str, new_name: str, user_id: str = None):
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to update this session")
+    # Removed agent ownership check. Verify session ownership directly.
+    if user_id and session.get("user_id") != user_id:
+        raise ValueError("Not authorized to update this session")
     result = db.sessions.update_one({"_id": ObjectId(session_id)}, {"$set": {"name": new_name}})
     if result.modified_count == 0:
         raise ValueError("Failed to update session name")
@@ -226,12 +225,6 @@ def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort
 def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
     """Get all sessions for a specific agent with optional user security check."""
     db = mongo_client.ai
-    
-    # First check if user is authorized to view this agent's sessions
-    if user_id:
-        agent = db.agents.find_one({"_id": ObjectId(agent_id)})
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to view sessions for this agent")
     
     query = {"agent_id": ObjectId(agent_id)}
     if user_id:
