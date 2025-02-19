@@ -9,12 +9,12 @@ logger = logging.getLogger(__name__)
 
 def test_streaming():
     """Test streaming response from the API endpoint"""
-    url = "https://api.canalavi.com/chat/team/67b36b253988040f53b35f8e"
+    url = "https://api.canalavi.com/chat/team/67b499b13f5dd757352a9b2f"
     headers = {
         "Accept": "text/event-stream",  # Important for SSE
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImNhdCI6ImNsX0I3ZDRQRDIyMkFBQSIsImtpZCI6Imluc18ycXFrTXhVQXQwQmJ4NW9EZld0MTd5WTNMQmsiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3Mzk4MTczNzMsImlhdCI6MTczOTgxMTM3MywiaXNzIjoiaHR0cHM6Ly9mdW5ueS1wYXJyb3QtNTAuY2xlcmsuYWNjb3VudHMuZGV2IiwianRpIjoiNjM2NjNhMGY3YWM0ZWMxYjYyNzIiLCJuYmYiOjE3Mzk4MTEzNjgsInN1YiI6InVzZXJfMnNMME5Za3NSNDl5NUVKUDFXQjhVY0FCOWUwIn0.19ZJ01iDH-F-BbqbHogYkJftYSsksEgKDLkxT8jTRHr-mXjVqIDCyBS5zBXZaOiSm74SanAwBa0kVinONxWa5nn9R5OSmrK4xy9k6eIJDMVmk2PFmygtphQxoxQ0KM0sUjE3Vo-WznQ3ZFAQ5a-kyqrIanXZtBp4gZMXSyON5rfM2oSZUv7egl8yPuIPcYo19K3awyjCCya5KvDPNzIm2ElhYmd8Vh2I9Nn-QhVc9Mmnb-ivLDt5htapLTZGeN5nqSh-c-kqkTmuXg3qKcQk86IVhT6nKJhqNpZskxELzprGYN3MjvGpD3XHe3AlaznQa4fyEJ4KnqVF5_qnKuXuFg",
+        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImNhdCI6ImNsX0I3ZDRQRDIyMkFBQSIsImtpZCI6Imluc18ycXFrTXhVQXQwQmJ4NW9EZld0MTd5WTNMQmsiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3Mzk4OTYyOTYsImlhdCI6MTczOTg5MDI5NiwiaXNzIjoiaHR0cHM6Ly9mdW5ueS1wYXJyb3QtNTAuY2xlcmsuYWNjb3VudHMuZGV2IiwianRpIjoiYjc2MjEyMzE0MzdhZmQ3MTg1YzUiLCJuYmYiOjE3Mzk4OTAyOTEsInN1YiI6InVzZXJfMnNMME5Za3NSNDl5NUVKUDFXQjhVY0FCOWUwIn0.jQ4xX3hjDqMzVU9Bvkfq1t8VHhXSYIgZJ6wVHLMVsSp5TGKmLJE7LvdOLKErM282DY85yY9wAbI3T6i1PIugMR7X0SLaT7YB-v0Pwkj_8bCLnHUCP9LTx2oYGPdi3DdOoUMn95wtFsqrM2C48qSY74Ai1GGfn1lA1Gt-8m732Zc39kEhXGMKg-IXf8t7gj6stCHl3bXThPVZ1B2sT-m1jQ5JnApTWNNZFr_6dCzRMqiRFGzvDfWDxDeH5obcJyb2r4MwfbgnGqoiBC3AZQECDBmDQ0z2X_aoOeyfB8xa4FBCoJXpHa-hDH4fnSSCG34msc9LGTedzEzRBwHn29O9iA",
         "Content-Type": "application/json",
     }
     params = {

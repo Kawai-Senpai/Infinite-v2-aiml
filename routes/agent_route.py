@@ -109,10 +109,17 @@ async def list_public_agents(
     limit: int = 20, 
     skip: int = 0, 
     sort_by: str = "created_at",
-    sort_order: int = -1
+    sort_order: int = -1,
+    user_id: str = Query(None)  # Add optional user_id parameter
 ):
     try:
-        agents = get_all_public_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_public_agents(
+            limit=limit, 
+            skip=skip, 
+            sort_by=sort_by, 
+            sort_order=sort_order,
+            user_id=user_id  # Pass user_id to function
+        )
         return {
             "message": "Public agents retrieved successfully.",
             "data": agents
@@ -130,10 +137,17 @@ async def list_approved_agents(
     limit: int = 20, 
     skip: int = 0, 
     sort_by: str = "created_at",
-    sort_order: int = -1
+    sort_order: int = -1,
+    user_id: str = Query(None)  # Add optional user_id parameter
 ):
     try:
-        agents = get_all_approved_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_approved_agents(
+            limit=limit, 
+            skip=skip, 
+            sort_by=sort_by, 
+            sort_order=sort_order,
+            user_id=user_id  # Pass user_id to function
+        )
         return {
             "message": "Approved agents retrieved successfully.",
             "data": agents
@@ -151,10 +165,17 @@ async def list_system_agents(
     limit: int = 20, 
     skip: int = 0, 
     sort_by: str = "created_at",
-    sort_order: int = -1
+    sort_order: int = -1,
+    user_id: str = Query(None)  # Add optional user_id parameter
 ):
     try:
-        agents = get_all_system_agents(limit=limit, skip=skip, sort_by=sort_by, sort_order=sort_order)
+        agents = get_all_system_agents(
+            limit=limit, 
+            skip=skip, 
+            sort_by=sort_by, 
+            sort_order=sort_order,
+            user_id=user_id  # Pass user_id to function
+        )
         return {
             "message": "System agents retrieved successfully.",
             "data": agents
@@ -259,10 +280,19 @@ async def search_agent(
     skip: int = 0,
     types: list = Query([], description="Agent types to filter (e.g., public, private, approved, system)"),
     sort_by: str = Query("created_at", description="Field to sort results by"),
-    sort_order: int = Query(-1, description="Sort order (-1 for descending, 1 for ascending)")
+    sort_order: int = Query(-1, description="Sort order (-1 for descending, 1 for ascending)"),
+    user_id: str = Query(None)  # Add optional user_id parameter
 ):
     try:
-        agents = search_agents(query, limit, skip, types, sort_by, sort_order)
+        agents = search_agents(
+            query, 
+            limit, 
+            skip, 
+            types, 
+            sort_by, 
+            sort_order,
+            user_id=user_id  # Pass user_id to function
+        )
         return {
             "message": "Agents retrieved successfully.",
             "data": agents

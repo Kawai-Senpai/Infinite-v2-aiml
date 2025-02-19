@@ -4,7 +4,13 @@ from ultraprint.logging import logger
 from datetime import datetime, timezone
 from bson import ObjectId
 from keys.keys import environment
-from utilities.save_json import convert_objectid_to_str  # NEW IMPORT
+from utilities.save_json import convert_objectid_to_str
+
+# NEW HELPER: safely converts an id to string.
+def safe_convert_id(value):
+    if isinstance(value, ObjectId):
+        return convert_objectid_to_str(value)
+    return str(value)
 
 #! Initialize ---------------------------------------------------------------
 config = UltraConfig('config.json')
@@ -46,7 +52,6 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
     
     session_doc = {
         "agent_id": ObjectId(agent_id),
-        "history": [],
         "max_context_results": max_context_results,
         "created_at": datetime.now(timezone.utc),
         "name": name or "Untitled Session"  # Default name if none provided
@@ -63,10 +68,9 @@ def update_session_name(session_id: str, new_name: str, user_id: str = None):
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    if user_id:
-        agent = db.agents.find_one({"_id": session.get("agent_id")})  # changed from session["agent_id"]
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to update this session")
+    # Removed agent ownership check. Verify session ownership directly.
+    if user_id and session.get("user_id") != user_id:
+        raise ValueError("Not authorized to update this session")
     result = db.sessions.update_one({"_id": ObjectId(session_id)}, {"$set": {"name": new_name}})
     if result.modified_count == 0:
         raise ValueError("Failed to update session name")
@@ -82,6 +86,7 @@ def delete_session(session_id: str, user_id: str = None):
     result = db.sessions.delete_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if result.deleted_count == 0:
         raise ValueError("Session not found")
+    db.history.delete_many({"session_id": ObjectId(session_id)})  # Clean up related history
 
 def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
     """Get details of a single session with security check and paginated history."""
@@ -99,28 +104,38 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     
     # Create a copy and handle conversions
     session_data = dict(session)
-    session_data["_id"] = convert_objectid_to_str(session_data["_id"])
+    session_data["_id"] = safe_convert_id(session_data["_id"])
     
     # Safely convert agent_id if it exists
     if session_data.get("agent_id"):
-        session_data["agent_id"] = convert_objectid_to_str(session_data["agent_id"])
+        session_data["agent_id"] = safe_convert_id(session_data["agent_id"])
     
     # Convert team_agents if they exist
     if session_data.get("team_agents"):
         for agent in session_data["team_agents"]:
             if agent.get("agent_id"):
-                agent["agent_id"] = convert_objectid_to_str(agent["agent_id"])
+                agent["agent_id"] = safe_convert_id(agent["agent_id"])
     
-    # Sort and paginate history
-    full_history = sorted(
-        session_data.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),
-        reverse=False # oldest first
-    )
+    # Get total count first
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
     
-    session_data["history"] = full_history[-(skip + limit): None if skip == 0 else -skip]
+    # Get latest entries by sorting in descending order
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                       .sort("timestamp", -1)  # Changed to -1 for latest first
+                       .skip(skip)
+                       .limit(limit))
+    
+    # Reverse the results to maintain chronological order (oldest to newest)
+    history_docs.reverse()
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
+    
+    session_data["history"] = history_docs
     session_data["history_metadata"] = {
-        "total": len(full_history),
+        "total": total,
         "skip": skip,
         "limit": limit
     }
@@ -138,20 +153,27 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     
     # Convert agent_id field if present
     if "agent_id" in session:
-        session["agent_id"] = convert_objectid_to_str(session["agent_id"])
-    # Sort history by timestamp ascending (oldest first)
-    history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
-        reverse=False  # Change to False to get oldest first
-    )
-    total = len(history)
-    # Slice from the bottom so that the slice represents the most recent messages,
-    # but they remain in ascending order (oldest of the latest first)
-    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
+        session["agent_id"] = safe_convert_id(session["agent_id"])
+    
+    # Get total count
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
+    
+    # Get latest entries
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                       .sort("timestamp", -1)  # Latest first
+                       .skip(skip)
+                       .limit(limit))
+    
+    # Reverse to maintain conversation flow
+    history_docs.reverse()
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     return {
-        "history": paginated_history,
+        "history": history_docs,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -166,19 +188,17 @@ def update_session_history(session_id: str, role: str, content: str, metadata: d
     if user_id and session.get("user_id") != user_id:
         raise ValueError("Not authorized to update this session")
     entry = {
+        "session_id": ObjectId(session_id),
         "role": role,
         "content": content,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
     if metadata:
         entry["metadata"] = metadata
-    db.sessions.update_one(
-        {"_id": ObjectId(session_id)},
-        {"$push": {"history": entry}}
-    )
+    db.history.insert_one(entry)  # Instead of pushing to sessions
 
 def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
-    """Get paginated recent chat history with security check."""
+    """Get paginated recent chat history with security check. Returns newest first."""
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
@@ -188,19 +208,23 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     
     # Convert agent_id field if present
     if "agent_id" in session:
-        session["agent_id"] = convert_objectid_to_str(session["agent_id"])
-    # Sort history by timestamp ascending (oldest first) 
-    history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),  # Convert any timestamp to string for comparison
-        reverse=False  # Change to False to get oldest first
-    )
+        session["agent_id"] = safe_convert_id(session["agent_id"])
     
-    total = len(history)
-    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
+    
+    # Already correct - keep newest first, don't reverse
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                    .sort("timestamp", -1)  # Most recent first
+                    .skip(skip)
+                    .limit(limit))
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     return {
-        "history": paginated_history,
+        "history": history_docs,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -214,20 +238,14 @@ def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort
                 .skip(skip)
                 .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])  # CONVERT _id
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
     """Get all sessions for a specific agent with optional user security check."""
     db = mongo_client.ai
-    
-    # First check if user is authorized to view this agent's sessions
-    if user_id:
-        agent = db.agents.find_one({"_id": ObjectId(agent_id)})
-        if agent and "user_id" in agent and str(agent["user_id"]) != user_id:
-            raise ValueError("Not authorized to view sessions for this agent")
     
     query = {"agent_id": ObjectId(agent_id)}
     if user_id:
@@ -238,9 +256,9 @@ def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int =
                 .skip(skip)                
                 .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])  # CONVERT _id
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 def get_team_sessions_for_user(
@@ -250,7 +268,7 @@ def get_team_sessions_for_user(
     sort_by: str = "created_at",
     sort_order: int = -1
 ) -> list:
-    """Return sessions with session_type in ['team', 'team-managed', 'team-flow']."""
+    """Return sessions with session_type in ['team', 'team-managed', 'team-flow'].""" 
     db = mongo_client.ai
     query = {
         "user_id": str(user_id),
@@ -261,9 +279,9 @@ def get_team_sessions_for_user(
                     .skip(skip)
                     .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 def get_standalone_sessions_for_user(
@@ -287,9 +305,9 @@ def get_standalone_sessions_for_user(
                     .skip(skip)
                     .limit(limit))
     for s in sessions:
-        s["_id"] = convert_objectid_to_str(s["_id"])
+        s["_id"] = safe_convert_id(s["_id"])
         if "agent_id" in s:
-            s["agent_id"] = convert_objectid_to_str(s["agent_id"])
+            s["agent_id"] = safe_convert_id(s["agent_id"])
     return sessions
 
 #! Team session functions ---------------------------------------------------
@@ -321,7 +339,6 @@ def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: 
     session_doc = {
         "session_type": session_type,
         "team_agents": agents,  # Store both ID and name
-        "history": [],
         "max_context_results": max_context_results,
         "created_at": datetime.now(timezone.utc),
         "name": name or "Untitled Team Session"  # Default name if none provided
@@ -338,22 +355,26 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise ValueError("Session not found")
-    # Modified check to allow team, team-managed, and team-flow sessions
     if session.get("session_type") not in ["team", "team-managed", "team-flow"]:
         raise ValueError("Not a team session")
     
-    # Sort history by timestamp
-    history = sorted(
-        session.get("history", []),
-        key=lambda x: str(x.get("timestamp", "")),
-        reverse=False
-    )
+    total = db.history.count_documents({"session_id": ObjectId(session_id)})
     
-    total = len(history)
-    paginated_history = history[-(skip + limit): None if skip == 0 else -skip]
+    history_docs = list(db.history.find({"session_id": ObjectId(session_id)})
+                    .sort("timestamp", -1)  # Latest first
+                    .skip(skip)
+                    .limit(limit))
+    
+    # Reverse to maintain conversation flow and convert ObjectId fields
+    history_docs.reverse()
+    for doc in history_docs:
+        if "_id" in doc:
+            doc["_id"] = safe_convert_id(doc["_id"])
+        if "session_id" in doc:
+            doc["session_id"] = safe_convert_id(doc["session_id"])
     
     return {
-        "history": paginated_history,
+        "history": history_docs,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -380,6 +401,7 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
                 break
     
     entry = {
+        "session_id": ObjectId(session_id),
         "role": role,
         "content": content,
         "timestamp": datetime.now(timezone.utc).isoformat()
@@ -394,7 +416,4 @@ def update_team_session_history(session_id: str, agent_id: str, role: str, conte
     if summary:
         entry["type"] = "summary"
     
-    db.sessions.update_one(
-        {"_id": ObjectId(session_id)},
-        {"$push": {"history": entry}}
-    )
+    db.history.insert_one(entry)  # Instead of pushing to sessions

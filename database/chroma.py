@@ -36,13 +36,20 @@ def pingtest():
 def create_collections():
     """Create shared documents collection if it doesn't exist"""
     all_collections = [col for col in config.get("chroma.structure", [])]
-    # Updated: client.list_collections() now returns a list of names
-    chroma_collections = client.list_collections()
-    log.info(f"Existing collections: {chroma_collections}")
+    # In v0.6.0, list_collections() directly returns collection names
+    existing_collections = client.list_collections()
+    log.info(f"Existing collections: {existing_collections}")
+    
     for collection in all_collections:
-        if collection not in chroma_collections:
-            log.success(f"Creating collection: {collection}")
-            client.create_collection(collection)
+        if collection not in existing_collections:
+            try:
+                log.success(f"Creating collection: {collection}")
+                client.create_collection(collection)
+            except Exception as e:
+                if "already exists" in str(e):
+                    log.info(f"Collection {collection} already exists")
+                else:
+                    log.error(f"Error creating collection {collection}: {str(e)}")
 
 #! Embedding Insertion & Querying ---------------------------------------------
 def embed(texts):
