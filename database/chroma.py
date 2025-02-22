@@ -24,6 +24,12 @@ openai_client = OpenAI(api_key=openai_api_key)
 #! ChromaDB functions ---------------------------------------------------------
 #* Check if ChromaDB connection is successful ---------------------------------
 def pingtest():
+    """
+    Send a ping to confirm a successful connection to ChromaDB.
+
+    Returns:
+        bool: True if the connection is successful, False otherwise.
+    """
     # Send a ping to confirm a successful connection
     try:
         client.list_collections()
@@ -34,7 +40,9 @@ def pingtest():
 
 #* Ensure required collections exist ------------------------------------------
 def create_collections():
-    """Create shared documents collection if it doesn't exist"""
+    """
+    Create shared documents collection if it doesn't exist.
+    """
     all_collections = [col for col in config.get("chroma.structure", [])]
     # In v0.6.0, list_collections() directly returns collection names
     existing_collections = client.list_collections()
@@ -53,7 +61,15 @@ def create_collections():
 
 #! Embedding Insertion & Querying ---------------------------------------------
 def embed(texts):
-    """Generate embeddings for single or multiple texts using OpenAI's API"""
+    """
+    Generate embeddings for single or multiple texts using OpenAI's API.
+
+    Args:
+        texts (str or list): The text(s) to embed.
+
+    Returns:
+        list or None: A list of embeddings if successful, None otherwise.
+    """
     try:
         # Convert single string to list for consistent handling
         if isinstance(texts, str):
@@ -74,7 +90,19 @@ def embed(texts):
         return None
 
 def insert_documents(agent_id, collection_id, documents, user_id=None, additional_metadata=None):
-    """Insert document(s) into shared collection with agent and collection identifiers"""
+    """
+    Insert document(s) into shared collection with agent and collection identifiers.
+
+    Args:
+        agent_id (str): The ID of the agent.
+        collection_id (str): The ID of the collection.
+        documents (str or list): The document(s) to insert.
+        user_id (str, optional): The ID of the user. Defaults to None.
+        additional_metadata (dict, optional): Additional metadata to store with the document(s). Defaults to None.
+
+    Returns:
+        tuple: A tuple containing a boolean indicating success and a list of inserted IDs.
+    """
     try:
         collection = client.get_collection("documents")
         
@@ -118,7 +146,19 @@ def insert_documents(agent_id, collection_id, documents, user_id=None, additiona
         return False, None
 
 def search_documents(agent_id, collection_id, query, n_results=5, similarity_threshold=config.get("chroma.threshold", 0.5)):
-    """Search for similar documents in the shared collection filtered by agent and collection IDs"""
+    """
+    Search for similar documents in the shared collection filtered by agent and collection IDs.
+
+    Args:
+        agent_id (str): The ID of the agent.
+        collection_id (str): The ID of the collection.
+        query (str or list): The query string(s) to search for.
+        n_results (int, optional): The number of results to return. Defaults to 5.
+        similarity_threshold (float, optional): The minimum similarity threshold for a match. Defaults to config.get("chroma.threshold", 0.5).
+
+    Returns:
+        dict or list: A dictionary or list of dictionaries containing the search results.
+    """
     try:
         collection = client.get_collection("documents")
         
@@ -185,7 +225,15 @@ def search_documents(agent_id, collection_id, query, n_results=5, similarity_thr
         return None
 
 def delete_agent_documents(agent_id):
-    """Delete all documents associated with an agent"""
+    """
+    Delete all documents associated with an agent.
+
+    Args:
+        agent_id (str): The ID of the agent.
+
+    Returns:
+        bool: True if the documents are successfully deleted, False otherwise.
+    """
     try:
         collection = client.get_collection("documents")
         collection.delete(where={"agent_id": str(agent_id)})
@@ -196,7 +244,16 @@ def delete_agent_documents(agent_id):
         return False
 
 def delete_file_documents(agent_id, file_id):
-    """Delete all documents associated with a specific file"""
+    """
+    Delete all documents associated with a specific file.
+
+    Args:
+        agent_id (str): The ID of the agent.
+        file_id (str): The ID of the file.
+
+    Returns:
+        bool: True if the documents are successfully deleted, False otherwise.
+    """
     try:
         collection = client.get_collection("documents")
         collection.delete(where={
@@ -210,7 +267,16 @@ def delete_file_documents(agent_id, file_id):
         return False
 
 def delete_collection_documents(agent_id, collection_id):
-    """Delete all documents in a specific collection"""
+    """
+    Delete all documents in a specific collection.
+
+    Args:
+        agent_id (str): The ID of the agent.
+        collection_id (str): The ID of the collection.
+
+    Returns:
+        bool: True if the documents are successfully deleted, False otherwise.
+    """
     try:
         collection = client.get_collection("documents")
         collection.delete(where={

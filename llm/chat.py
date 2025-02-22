@@ -30,7 +30,17 @@ cohere_client = cohere.Client(cohere_api_key)
 
 #! Getters and setters -------------------------------------------------------
 def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
-    """Get relevant context using collection IDs"""
+    """
+    Get relevant context using collection IDs.
+
+    Args:
+        agent_id (str): The ID of the agent.
+        query (str): The query to search for.
+        session_id (str): The ID of the session.
+
+    Returns:
+        list: A list of relevant context results.
+    """
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     if not agent:
@@ -52,7 +62,15 @@ def get_relevant_context(agent_id: str, query: str, session_id: str) -> list:
 #! Core chat functions -------------------------------------------------------
 #* Formatters ----------------------------------------------------------------
 def format_history_for_cohere(history: list) -> list:
-    """Convert OpenAI format history to Cohere format"""
+    """
+    Convert OpenAI format history to Cohere format.
+
+    Args:
+        history (list): A list of chat history messages in OpenAI format.
+
+    Returns:
+        list: A list of chat history messages in Cohere format.
+    """
     cohere_history = []
     preamble = ""
     for msg in history:
@@ -68,7 +86,16 @@ def format_history_for_cohere(history: list) -> list:
 
 #? Chat functions ------------------------------------------------------------
 def chat_with_openai_sync(agent_id: str, messages: list):
-    """Chat with OpenAI models (non-streaming)"""
+    """
+    Chat with OpenAI models (non-streaming).
+
+    Args:
+        agent_id (str): The ID of the agent.
+        messages (list): A list of messages to send to the model.
+
+    Returns:
+        str: The response from the OpenAI model.
+    """
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     
@@ -84,7 +111,16 @@ def chat_with_openai_sync(agent_id: str, messages: list):
         raise
 
 def chat_with_openai_stream(agent_id: str, messages: list):
-    """Chat with OpenAI models (streaming)"""
+    """
+    Chat with OpenAI models (streaming).
+
+    Args:
+        agent_id (str): The ID of the agent.
+        messages (list): A list of messages to send to the model.
+
+    Yields:
+        str: A stream of responses from the OpenAI model.
+    """
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     
@@ -98,7 +134,16 @@ def chat_with_openai_stream(agent_id: str, messages: list):
             yield chunk.choices[0].delta.content
 
 def chat_with_cohere_sync(agent_id: str, messages: list):
-    """Chat with Cohere models (non-streaming)"""
+    """
+    Chat with Cohere models (non-streaming).
+
+    Args:
+        agent_id (str): The ID of the agent.
+        messages (list): A list of messages to send to the model.
+
+    Returns:
+        str: The response from the Cohere model.
+    """
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     
@@ -113,7 +158,16 @@ def chat_with_cohere_sync(agent_id: str, messages: list):
     return str(response.text)
 
 def chat_with_cohere_stream(agent_id: str, messages: list):
-    """Chat with Cohere models (streaming)"""
+    """
+    Chat with Cohere models (streaming).
+
+    Args:
+        agent_id (str): The ID of the agent.
+        messages (list): A list of messages to send to the model.
+
+    Yields:
+        str: A stream of responses from the Cohere model.
+    """
     db = mongo_client.ai.agents
     agent = db.find_one({"_id": ObjectId(agent_id)})
     
@@ -132,7 +186,17 @@ def chat_with_cohere_stream(agent_id: str, messages: list):
 
 #! Driver function -----------------------------------------------------------
 def handle_stream_response(session_id, response_stream, metadata=None):
-    """Wrap the streaming response to yield text first, then optional metadata"""
+    """
+    Wrap the streaming response to yield text first, then optional metadata.
+
+    Args:
+        session_id (str): The ID of the session.
+        response_stream: The stream of responses.
+        metadata (dict, optional): Additional metadata to include. Defaults to None.
+
+    Yields:
+        str: A stream of text and metadata.
+    """
     full_response = ""
     for chunk in response_stream:
         if isinstance(chunk, str):
@@ -152,11 +216,28 @@ def handle_stream_response(session_id, response_stream, metadata=None):
         yield f"\n[metadata]={metadata}"
 
 def stream_generator(sentence):
-    """Generator to stream a single sentence"""
+    """
+    Generator to stream a single sentence.
+
+    Args:
+        sentence (str): The sentence to stream.
+
+    Yields:
+        str: The sentence.
+    """
     yield sentence
 
 def verify_session_access(session_id: str, user_id: str = None) -> bool:
-    """Verify if user has access to the session"""
+    """
+    Verify if user has access to the session.
+
+    Args:
+        session_id (str): The ID of the session.
+        user_id (str, optional): The ID of the user. Defaults to None.
+
+    Returns:
+        bool: True if the user has access, False otherwise.
+    """
     try:
         session_id_obj = ObjectId(session_id)
     except errors.InvalidId:
@@ -190,9 +271,21 @@ def chat(
     user_id: str = None,
     include_rich_response: bool = True
 ) -> Generator[str, None, None] | str:
-    
-    """Main chat function that handles both models and RAG"""
+    """
+    Main chat function that handles both models and RAG.
 
+    Args:
+        agent_id (str): The ID of the agent.
+        session_id (str): The ID of the session.
+        message (str): The message to send.
+        stream (bool, optional): Whether to use streaming. Defaults to False.
+        use_rag (bool, optional): Whether to use RAG. Defaults to True.
+        user_id (str, optional): The ID of the user. Defaults to None.
+        include_rich_response (bool, optional): Whether to include rich response. Defaults to True.
+
+    Returns:
+        Generator[str, None, None] | str: The response from the chat function.
+    """
     # Verify user access first
     if not verify_session_access(session_id, user_id):
         raise ValueError("Not authorized to access this session")
@@ -364,8 +457,19 @@ def chat(
 #! Team chat functions -------------------------------------------------------
 #* Basic team chat functions -------------------------------------------------
 def handle_team_stream_response(session_id: str, agent_id: str, response_stream, metadata=None, summary=False):
-    """Stream response with a prepended agent tag"""
+    """
+    Stream response with a prepended agent tag.
 
+    Args:
+        session_id (str): The ID of the session.
+        agent_id (str): The ID of the agent.
+        response_stream: The stream of responses.
+        metadata (dict, optional): Additional metadata to include. Defaults to None.
+        summary (bool, optional): Whether the response is a summary. Defaults to False.
+
+    Yields:
+        str: A stream of text and metadata.
+    """
     if summary:
         prefix = "[summary]\n"
         yield prefix
@@ -398,6 +502,22 @@ def each_team_agent_chat(
     include_rich_response: bool = True,
     system_msg_injection: str = None
 ):
+    """
+    Handle chat for each team agent.
+
+    Args:
+        agent_id (str): The ID of the agent.
+        session_id (str): The ID of the session.
+        message (str, optional): The message to send. Defaults to "".
+        stream (bool, optional): Whether to use streaming. Defaults to False.
+        use_rag (bool, optional): Whether to use RAG. Defaults to True.
+        user_id (str, optional): The ID of the user. Defaults to None.
+        include_rich_response (bool, optional): Whether to include rich response. Defaults to True.
+        system_msg_injection (str, optional): System message injection. Defaults to None.
+
+    Returns:
+        Generator[str, None, None] | str: The response from the chat function.
+    """
     # Save original message input
     provided_message = message
     db = mongo_client.ai.agents
@@ -594,6 +714,17 @@ def team_chat(session_id: str, message: str, stream: bool = False, use_rag: bool
     For a team session, have each selected agent answer the question sequentially.
     In non-stream mode, returns a dict with responses and an aggregated conversation.
     In stream mode, returns a generator that yields each agent's response.
+
+    Args:
+        session_id (str): The ID of the session.
+        message (str): The message to send.
+        stream (bool, optional): Whether to use streaming. Defaults to False.
+        use_rag (bool, optional): Whether to use RAG. Defaults to True.
+        user_id (str, optional): The ID of the user. Defaults to None.
+        include_rich_response (bool, optional): Whether to include rich response. Defaults to True.
+
+    Returns:
+        dict | Generator[str, None, None]: The responses from the team chat function.
     """
     from bson import ObjectId
     db = mongo_client.ai
@@ -681,6 +812,17 @@ def team_chat_managed(session_id: str, message: str, stream: bool = False, use_r
     """
     Managed team chat: first, use team_managed_decision to determine the order of agents,
     then execute the agents in that order. Otherwise, behavior is similar to team_chat.
+
+    Args:
+        session_id (str): The ID of the session.
+        message (str): The message to send.
+        stream (bool, optional): Whether to use streaming. Defaults to False.
+        use_rag (bool, optional): Whether to use RAG. Defaults to True.
+        user_id (str, optional): The ID of the user. Defaults to None.
+        include_rich_response (bool, optional): Whether to include rich response. Defaults to True.
+
+    Returns:
+        dict | Generator[str, None, None]: The responses from the managed team chat function.
     """
     from bson import ObjectId
     from llm.decision import team_managed_decision  # new import for managed decision
@@ -794,6 +936,18 @@ def team_chat_flow(session_id: str, message: str, stream: bool = False, use_rag:
     """
     Flow-based team chat where next agent is decided based on conversation context.
     Limits the maximum number of agent responses to prevent infinite loops.
+
+    Args:
+        session_id (str): The ID of the session.
+        message (str): The message to send.
+        stream (bool, optional): Whether to use streaming. Defaults to False.
+        use_rag (bool, optional): Whether to use RAG. Defaults to True.
+        user_id (str, optional): The ID of the user. Defaults to None.
+        include_rich_response (bool, optional): Whether to include rich response. Defaults to True.
+        max_steps (int, optional): The maximum number of steps. Defaults to 50.
+
+    Returns:
+        dict | Generator[str, None, None]: The responses from the flow-based team chat function.
     """
     from bson import ObjectId
     from llm.decision import team_flow_decision

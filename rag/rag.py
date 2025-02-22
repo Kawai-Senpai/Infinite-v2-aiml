@@ -8,7 +8,23 @@ from rag.file_handler import get_file_content
 from rag.file_management import add_file
 
 def update_progress(job_id: str, step: str, status: str = "IN_PROGRESS", error: str = None, details: dict = None):
-    """Update job progress in MongoDB with detailed step tracking."""
+    """
+    Update the progress of a file processing job in MongoDB.
+
+    This function updates the job's status, timestamp, and any error messages or details
+    for a specific step in the file processing workflow.
+
+    Args:
+        job_id (str): The ID of the job to update.
+        step (str): The current step in the job's workflow (e.g., "downloading", "chunking").
+        status (str, optional): The status of the step (e.g., "IN_PROGRESS", "COMPLETED", "FAILED").
+                                 Defaults to "IN_PROGRESS". The status is converted to uppercase.
+        error (str, optional): An error message if the step failed. Defaults to None.
+        details (dict, optional): Additional details to store with the step. Defaults to None.
+
+    Returns:
+        None: This function updates the MongoDB document directly.
+    """
     status = status.upper()  # Enforce uppercase status
     step_data = {
         "status": status,
@@ -30,7 +46,28 @@ def process_file_job(job_id: str, agent_id: str, user_id: str,
                     chunk_size: int, overlap: int, chunk_type: str,
                     s3_bucket: str = None, s3_key: str = None,
                     collection_index: int = None):
-    """Background process for handling file processing using dedicated functions with step timing."""
+    """
+    Background process for handling file processing using dedicated functions with step timing.
+
+    This function processes a file by downloading its content, chunking it, and adding it to the
+    specified agent's knowledge base. It also updates the job's progress in MongoDB.
+
+    Args:
+        job_id (str): The ID of the job to process.
+        agent_id (str): The ID of the agent to associate the file with.
+        user_id (str): The ID of the user who initiated the job.
+        file_name (str): The name of the file being processed.
+        file_type (str): The type of the file (e.g., "pdf", "webpage").
+        chunk_size (int): The size of the chunks to split the file into.
+        overlap (int): The amount of overlap between chunks.
+        chunk_type (str): The type of chunking to use (e.g., "sentence", "paragraph").
+        s3_bucket (str, optional): The name of the S3 bucket where the file is stored. Defaults to None.
+        s3_key (str, optional): The key of the file in the S3 bucket. Defaults to None.
+        collection_index (int, optional): The index of the collection to add the file to. Defaults to None.
+
+    Returns:
+        None: This function updates the MongoDB document and interacts with external services.
+    """
     try:
         # Build details based on file type: if webpage, use s3_key as URL; else use bucket/key
         if file_type == "webpage":
@@ -80,8 +117,24 @@ def start_file_job(agent_id: str, user_id: str, file_name: str, file_type: str,
                 collection_index: int = None) -> dict:
     """
     Start a file processing job.
-    Immediately inserts a job record in 'jobs' collection with status 'IN_PROGRESS'
-    and spawns a background process to process the file.
+
+    This function creates a job record in the 'jobs' collection with the status 'IN_PROGRESS'
+    and spawns a background process to handle the file processing.
+
+    Args:
+        agent_id (str): The ID of the agent to associate the file with.
+        user_id (str): The ID of the user who initiated the job.
+        file_name (str): The name of the file to process.
+        file_type (str): The type of the file (e.g., "pdf", "webpage").
+        s3_bucket (str, optional): The name of the S3 bucket where the file is stored. Defaults to None.
+        s3_key (str, optional): The key of the file in the S3 bucket. Defaults to None.
+        chunk_size (int, optional): The size of the chunks to split the file into. Defaults to 3.
+        overlap (int, optional): The amount of overlap between chunks. Defaults to 1.
+        chunk_type (str, optional): The type of chunking to use (e.g., "sentence"). Defaults to "sentence".
+        collection_index (int, optional): The index of the collection to add the file to. Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the job ID.
     """
     job_collection = mongo_client.jobs.files
     job_record = {

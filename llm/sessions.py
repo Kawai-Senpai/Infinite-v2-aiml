@@ -8,6 +8,15 @@ from utilities.save_json import convert_objectid_to_str
 
 # NEW HELPER: safely converts an id to string.
 def safe_convert_id(value):
+    """
+    Safely convert a value to a string, handling ObjectId instances.
+
+    Args:
+        value: The value to convert.
+
+    Returns:
+        str: The string representation of the value.
+    """
     if isinstance(value, ObjectId):
         return convert_objectid_to_str(value)
     return str(value)
@@ -22,7 +31,21 @@ log = logger('sessions_log',
 
 #! Chat session functions --------------------------------------------------
 def create_session(agent_id: str, max_context_results: int = 1, user_id: str = None, name: str = None) -> str:
-    """Create a new chat session for an agent with optional user ownership and name."""
+    """
+    Create a new chat session for an agent.
+
+    Args:
+        agent_id (str): The ID of the agent for the session.
+        max_context_results (int, optional): The maximum number of context results to retrieve. Defaults to 1.
+        user_id (str, optional): The ID of the user creating the session. Defaults to None.
+        name (str, optional): The name of the session. Defaults to None.
+
+    Returns:
+        str: The ID of the newly created session.
+
+    Raises:
+        ValueError: If the agent is not found or if the user is not authorized to create a session for the agent.
+    """
     db = mongo_client.ai
     agent = db.agents.find_one({"_id": ObjectId(agent_id)})
     if not agent:
@@ -63,7 +86,17 @@ def create_session(agent_id: str, max_context_results: int = 1, user_id: str = N
     return str(result.inserted_id)  # Return MongoDB's _id directly
 
 def update_session_name(session_id: str, new_name: str, user_id: str = None):
-    """Update the name of an existing session with security check."""
+    """
+    Update the name of an existing session.
+
+    Args:
+        session_id (str): The ID of the session to update.
+        new_name (str): The new name for the session.
+        user_id (str, optional): The ID of the user updating the session. Defaults to None.
+
+    Raises:
+        ValueError: If the session is not found or if the user is not authorized to update the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
@@ -76,7 +109,16 @@ def update_session_name(session_id: str, new_name: str, user_id: str = None):
         raise ValueError("Failed to update session name")
 
 def delete_session(session_id: str, user_id: str = None):
-    """Delete a chat session with security check."""
+    """
+    Delete a chat session.
+
+    Args:
+        session_id (str): The ID of the session to delete.
+        user_id (str, optional): The ID of the user deleting the session. Defaults to None.
+
+    Raises:
+        ValueError: If the session is not found or if the user is not authorized to delete the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
@@ -89,7 +131,21 @@ def delete_session(session_id: str, user_id: str = None):
     db.history.delete_many({"session_id": ObjectId(session_id)})  # Clean up related history
 
 def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0):
-    """Get details of a single session with security check and paginated history."""
+    """
+    Get details of a single session with paginated history.
+
+    Args:
+        session_id (str): The ID of the session to retrieve.
+        user_id (str, optional): The ID of the user requesting the session. Defaults to None.
+        limit (int, optional): The maximum number of history entries to retrieve. Defaults to 20.
+        skip (int, optional): The number of history entries to skip. Defaults to 0.
+
+    Returns:
+        dict: A dictionary containing the session details and paginated history.
+
+    Raises:
+        ValueError: If the session is not found or if the user is not authorized to view the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
@@ -143,7 +199,21 @@ def get_session(session_id: str, user_id: str = None, limit: int = 20, skip: int
     return session_data
 
 def get_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
-    """Get paginated chat history for a session with security check."""
+    """
+    Get paginated chat history for a session.
+
+    Args:
+        session_id (str): The ID of the session to retrieve history for.
+        user_id (str, optional): The ID of the user requesting the history. Defaults to None.
+        limit (int, optional): The maximum number of history entries to retrieve. Defaults to 20.
+        skip (int, optional): The number of history entries to skip. Defaults to 0.
+
+    Returns:
+        dict: A dictionary containing the paginated chat history.
+
+    Raises:
+        ValueError: If the session is not found or if the user is not authorized to view the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
@@ -180,7 +250,19 @@ def get_session_history(session_id: str, user_id: str = None, limit: int = 20, s
     }
 
 def update_session_history(session_id: str, role: str, content: str, metadata: dict = None, user_id: str = None):
-    """Add message to session history with security check."""
+    """
+    Add a message to the session history.
+
+    Args:
+        session_id (str): The ID of the session to update.
+        role (str): The role of the message sender (e.g., "user", "assistant").
+        content (str): The content of the message.
+        metadata (dict, optional): Additional metadata to store with the message. Defaults to None.
+        user_id (str, optional): The ID of the user updating the session. Defaults to None.
+
+    Raises:
+        ValueError: If the session is not found or if the user is not authorized to update the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})  # Changed from session_id to _id
     if not session:
@@ -198,7 +280,21 @@ def update_session_history(session_id: str, role: str, content: str, metadata: d
     db.history.insert_one(entry)  # Instead of pushing to sessions
 
 def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
-    """Get paginated recent chat history with security check. Returns newest first."""
+    """
+    Get paginated recent chat history, newest first.
+
+    Args:
+        session_id (str): The ID of the session to retrieve history for.
+        user_id (str, optional): The ID of the user requesting the history. Defaults to None.
+        limit (int, optional): The maximum number of history entries to retrieve. Defaults to 20.
+        skip (int, optional): The number of history entries to skip. Defaults to 0.
+
+    Returns:
+        dict: A dictionary containing the paginated chat history, sorted by timestamp descending.
+
+    Raises:
+        ValueError: If the session is not found or if the user is not authorized to view the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
@@ -231,7 +327,19 @@ def get_recent_history(session_id: str, user_id: str = None, limit: int = 20, sk
     }
 
 def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
-    """Get all sessions belonging to a user with pagination and sorting."""
+    """
+    Get all sessions belonging to a user with pagination and sorting.
+
+    Args:
+        user_id (str): The ID of the user to retrieve sessions for.
+        limit (int, optional): The maximum number of sessions to retrieve. Defaults to 20.
+        skip (int, optional): The number of sessions to skip. Defaults to 0.
+        sort_by (str, optional): The field to sort the sessions by. Defaults to "created_at".
+        sort_order (int, optional): The sort order (1 for ascending, -1 for descending). Defaults to -1.
+
+    Returns:
+        list: A list of sessions belonging to the user.
+    """
     db = mongo_client.ai
     sessions = list(db.sessions.find({"user_id": str(user_id)})  # Query with string
                 .sort(sort_by, sort_order)
@@ -244,7 +352,20 @@ def get_all_sessions_for_user(user_id: str, limit: int = 20, skip: int = 0, sort
     return sessions
 
 def get_agent_sessions_for_user(agent_id: str, user_id: str = None, limit: int = 20, skip: int = 0, sort_by: str = "created_at", sort_order: int = -1) -> list:
-    """Get all sessions for a specific agent with optional user security check."""
+    """
+    Get all sessions for a specific agent with optional user security check.
+
+    Args:
+        agent_id (str): The ID of the agent to retrieve sessions for.
+        user_id (str, optional): The ID of the user requesting the sessions. Defaults to None.
+        limit (int, optional): The maximum number of sessions to retrieve. Defaults to 20.
+        skip (int, optional): The number of sessions to skip. Defaults to 0.
+        sort_by (str, optional): The field to sort the sessions by. Defaults to "created_at".
+        sort_order (int, optional): The sort order (1 for ascending, -1 for descending). Defaults to -1.
+
+    Returns:
+        list: A list of sessions for the specified agent.
+    """
     db = mongo_client.ai
     
     query = {"agent_id": ObjectId(agent_id)}
@@ -268,7 +389,19 @@ def get_team_sessions_for_user(
     sort_by: str = "created_at",
     sort_order: int = -1
 ) -> list:
-    """Return sessions with session_type in ['team', 'team-managed', 'team-flow'].""" 
+    """
+    Return sessions with session_type in ['team', 'team-managed', 'team-flow'].
+
+    Args:
+        user_id (str): The ID of the user to retrieve sessions for.
+        limit (int, optional): The maximum number of sessions to retrieve. Defaults to 20.
+        skip (int, optional): The number of sessions to skip. Defaults to 0.
+        sort_by (str, optional): The field to sort the sessions by. Defaults to "created_at".
+        sort_order (int, optional): The sort order (1 for ascending, -1 for descending). Defaults to -1.
+
+    Returns:
+        list: A list of team sessions for the user.
+    """
     db = mongo_client.ai
     query = {
         "user_id": str(user_id),
@@ -291,7 +424,19 @@ def get_standalone_sessions_for_user(
     sort_by: str = "created_at",
     sort_order: int = -1
 ) -> list:
-    """Return sessions without a team session_type."""
+    """
+    Return sessions without a team session_type.
+
+    Args:
+        user_id (str): The ID of the user to retrieve sessions for.
+        limit (int, optional): The maximum number of sessions to retrieve. Defaults to 20.
+        skip (int, optional): The number of sessions to skip. Defaults to 0.
+        sort_by (str, optional): The field to sort the sessions by. Defaults to "created_at".
+        sort_order (int, optional): The sort order (1 for ascending, -1 for descending). Defaults to -1.
+
+    Returns:
+        list: A list of standalone sessions for the user.
+    """
     db = mongo_client.ai
     query = {
         "user_id": str(user_id),
@@ -312,7 +457,22 @@ def get_standalone_sessions_for_user(
 
 #! Team session functions ---------------------------------------------------
 def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: str = None, session_type: str = "team", name: str = None) -> str:
-    """Create a new team chat session for multiple agents, with an optional name."""
+    """
+    Create a new team chat session for multiple agents, with an optional name.
+
+    Args:
+        agent_ids (list): A list of agent IDs for the session.
+        max_context_results (int, optional): The maximum number of context results to retrieve. Defaults to 1.
+        user_id (str, optional): The ID of the user creating the session. Defaults to None.
+        session_type (str, optional): The type of the session. Defaults to "team".
+        name (str, optional): The name of the session. Defaults to None.
+
+    Returns:
+        str: The ID of the newly created team session.
+
+    Raises:
+        ValueError: If any agent is not found, if the user is not authorized to use a private agent, or if the session type is invalid.
+    """
     db = mongo_client.ai
     
     valid_session_types = ["team", "team-managed", "team-flow"]
@@ -350,7 +510,21 @@ def create_team_session(agent_ids: list, max_context_results: int = 1, user_id: 
     return str(result.inserted_id)
 
 def get_team_session_history(session_id: str, user_id: str = None, limit: int = 20, skip: int = 0) -> dict:
-    """Get paginated chat history for a team session with agent names."""
+    """
+    Get paginated chat history for a team session with agent names.
+
+    Args:
+        session_id (str): The ID of the team session to retrieve history for.
+        user_id (str, optional): The ID of the user requesting the history. Defaults to None.
+        limit (int, optional): The maximum number of history entries to retrieve. Defaults to 20.
+        skip (int, optional): The number of history entries to skip. Defaults to 0.
+
+    Returns:
+        dict: A dictionary containing the paginated chat history.
+
+    Raises:
+        ValueError: If the session is not found or if the session is not a team session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
@@ -381,7 +555,21 @@ def get_team_session_history(session_id: str, user_id: str = None, limit: int = 
     }
 
 def update_team_session_history(session_id: str, agent_id: str, role: str, content: str, metadata: dict = None, user_id: str = None, summary: bool = False):
-    """Add message to team session history."""
+    """
+    Add a message to the team session history.
+
+    Args:
+        session_id (str): The ID of the team session to update.
+        agent_id (str): The ID of the agent sending the message.
+        role (str): The role of the message sender (e.g., "user", "assistant").
+        content (str): The content of the message.
+        metadata (dict, optional): Additional metadata to store with the message. Defaults to None.
+        user_id (str, optional): The ID of the user updating the session. Defaults to None.
+        summary (bool, optional): Whether the message is a summary. Defaults to False.
+
+    Raises:
+        ValueError: If the session is not found, if the session is not a team session, or if the user is not authorized to update the session.
+    """
     db = mongo_client.ai
     session = db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:

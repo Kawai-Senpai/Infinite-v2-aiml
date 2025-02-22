@@ -15,7 +15,20 @@ log = logger('chat_log',
 
 #* Executor ------------------------------------------------------------------
 def _execute_tool(tool, agent, message, history):
-    """Worker function to execute a single tool"""
+    """
+    Execute a single tool.
+
+    This function dynamically imports and executes a specified tool module.
+
+    Args:
+        tool (str): The name of the tool to execute.
+        agent (dict): The agent configuration.
+        message (str): The user message.
+        history (list): The chat history.
+
+    Returns:
+        dict: A dictionary containing the tool name and its response.
+    """
     try:
         tool_module = importlib.import_module(f"tools.{tool}.main")
         response = tool_module._execute(agent, message, history)
@@ -25,7 +38,20 @@ def _execute_tool(tool, agent, message, history):
         return {"tool": tool, "response": f"Error: {str(e)}"}
 
 def execute_tools(agent, message, history):
-    """Execute multiple tools in parallel and combine their responses"""
+    """
+    Execute multiple tools in parallel and combine their responses.
+
+    This function analyzes the user message to determine which tools are needed,
+    executes those tools in parallel, and combines their responses into a single output.
+
+    Args:
+        agent (dict): The agent configuration, including enabled tools.
+        message (str): The user message.
+        history (list): The chat history.
+
+    Returns:
+        dict: A dictionary containing the combined text output and metadata from the executed tools.
+    """
     try:
         enabled_tools = agent.get("tools", [])
         # Build updated tool descriptions

@@ -18,7 +18,16 @@ log = logger('decision_log',
 client = OpenAI(api_key=openai_api_key)
 
 def analyze_tool_need(message: str, available_tools: list) -> dict:
-    """Analyze if a tool is needed for the message"""
+    """
+    Analyze if a tool is needed for the message.
+
+    Args:
+        message (str): The message to analyze.
+        available_tools (list): A list of available tools.
+
+    Returns:
+        dict: A dictionary containing the tools needed for the message.
+    """
     prompt = make_tool_analysis_prompt(message, available_tools)
     response = client.beta.chat.completions.parse(
         model=config.get("models.dicision"),
@@ -32,7 +41,15 @@ def analyze_tool_need(message: str, available_tools: list) -> dict:
     return extract_json_content(content)
 
 def analyze_for_memory(message: str) -> dict:
-    """Analyze if the message contains important information to remember"""
+    """
+    Analyze if the message contains important information to remember.
+
+    Args:
+        message (str): The message to analyze.
+
+    Returns:
+        dict: A dictionary containing the information to remember.
+    """
     try:
         prompt = make_memory_analysis_prompt(message)
         response = client.beta.chat.completions.parse(
@@ -51,10 +68,13 @@ def analyze_for_memory(message: str) -> dict:
 def summarize_chat_history(chat_history: list, num_messages = None) -> dict:
     """
     Summarize the latest chat history messages.
-    chat_history: list of dicts with keys 'role' and 'content'
-    num_messages: number of latest messages to consider for summary
 
-    Returns a dict like { "summary": "..." }
+    Args:
+        chat_history (list): A list of dictionaries with keys 'role' and 'content'.
+        num_messages (int, optional): The number of latest messages to consider for summary. Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the summary of the chat history.
     """
     # Select the latest messages
     if not num_messages:
@@ -89,7 +109,18 @@ def summarize_chat_history(chat_history: list, num_messages = None) -> dict:
 
 #! Team Chat ---------------------------------------------------------------
 def team_managed_decision(message, chat_history, num_messages=None, all_agents=None):
+    """
+    Decide the order of agents in a managed team chat.
 
+    Args:
+        message (str): The message to analyze.
+        chat_history (list): A list of chat history messages.
+        num_messages (int, optional): The number of latest messages to consider. Defaults to None.
+        all_agents (list, optional): A list of all available agents. Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the order of agents.
+    """
     if all_agents is None:
         return {"agent_order": []}
     
@@ -122,6 +153,17 @@ def team_managed_decision(message, chat_history, num_messages=None, all_agents=N
     return extract_json_content(content)
 
 def team_flow_decision(chat_history, num_messages=None, all_agents=None):
+    """
+    Decide the next agent in flow based on conversation history.
+
+    Args:
+        chat_history (list): A list of chat history messages.
+        num_messages (int, optional): The number of latest messages to consider. Defaults to None.
+        all_agents (list, optional): A list of all available agents. Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the next agent to respond.
+    """
     """Decide next agent in flow based on conversation history."""
     if all_agents is None:
         return {"next_agent": ""}

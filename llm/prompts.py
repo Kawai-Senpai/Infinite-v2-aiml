@@ -1,5 +1,16 @@
 def make_basic_prompt(name, role, capabilities, rules):
+    """
+    Create a basic prompt for an agent.
 
+    Args:
+        name (str): The name of the agent.
+        role (str): The role of the agent.
+        capabilities (list): A list of the agent's capabilities.
+        rules (list): A list of rules the agent must follow.
+
+    Returns:
+        str: The formatted basic prompt.
+    """
     capabilities_str = "\n".join(capabilities)
     rules_str = "\n".join(rules)
 
@@ -21,7 +32,16 @@ Important:
 """
 
 def format_context(context_results: list, memory: list) -> str:
-    """Format context results into a readable string"""
+    """
+    Format context results into a readable string.
+
+    Args:
+        context_results (list): A list of context results.
+        memory (list): A list of memory items.
+
+    Returns:
+        str: The formatted context string.
+    """
     if not context_results:
         return ""
     
@@ -44,7 +64,16 @@ def format_context(context_results: list, memory: list) -> str:
     return memory_str + context_str
 
 def make_tool_analysis_prompt(message: str, available_tools: list) -> str:
-    """Format prompt for tool analysis"""
+    """
+    Format prompt for tool analysis.
+
+    Args:
+        message (str): The user message.
+        available_tools (list): A list of available tools.
+
+    Returns:
+        str: The formatted tool analysis prompt.
+    """
     tools_str = str(available_tools)
     example = """Your output should look like this (example):
 {
@@ -65,8 +94,15 @@ Rules:
 """
 
 def make_memory_analysis_prompt(message: str) -> str:
-    """Format prompt for memory analysis"""
+    """
+    Format prompt for memory analysis.
 
+    Args:
+        message (str): The user message.
+
+    Returns:
+        str: The formatted memory analysis prompt.
+    """
     example = """Your output should look like this (example):
 {
     "to_remember": [
@@ -90,6 +126,15 @@ Rules:
 """
 
 def make_summary_prompt(conversation_text: str) -> str:
+    """
+    Create a prompt for summarizing a conversation.
+
+    Args:
+        conversation_text (str): The text of the conversation to summarize.
+
+    Returns:
+        str: The formatted summary prompt.
+    """
     return f"""In this conversation multiple agents are discussing a topic and trying to find a solution. After they have finished, you need to give the final verdict or solution.
 Please read the following conversation and provide a concise summary capturing the key points and learnings.
 Ensure that your answer is valid, parsable JSON with exactly one key "summary", like this:
@@ -107,15 +152,43 @@ Rules:
 """
 
 def format_tool_response(tool_response: str) -> str:
-    """Format tool response for inclusion in context"""
+    """
+    Format tool response for inclusion in context.
+
+    Args:
+        tool_response (str): The tool response.
+
+    Returns:
+        str: The formatted tool response string.
+    """
     return f"\n\nTool response: {tool_response}" if tool_response else ""
 
 def format_system_message(prompt: str, context: str, tool_response: str) -> str:
-    """Format the complete system message"""
+    """
+    Format the complete system message.
+
+    Args:
+        prompt (str): The basic prompt.
+        context (str): The context string.
+        tool_response (str): The formatted tool response.
+
+    Returns:
+        str: The complete system message.
+    """
     return prompt + context + format_tool_response(tool_response)
 
 #! Team Chat -------------------------------------------------------------------
 def make_system_injection_prompt(all_agents, agent_name):
+    """
+    Create a system prompt injection for team chat.
+
+    Args:
+        all_agents (list): A list of all agent names in the team.
+        agent_name (str): The name of the current agent.
+
+    Returns:
+        str: The formatted system prompt injection.
+    """
     system_prompt_injection = f"""
 This is a team conversation with the following agents: {', '.join(all_agents)}. 
 Your are {agent_name}.
@@ -133,6 +206,16 @@ Important:
     return system_prompt_injection
 
 def make_agent_decider_prompt_managed(message, all_agents):
+    """
+    Create a prompt for the agent decider in managed team chat.
+
+    Args:
+        message (str): The user message.
+        all_agents (list): A list of all available agents.
+
+    Returns:
+        str: The formatted agent decider prompt.
+    """
     agents_str = str(all_agents)
     return f"""This is a user message. You are a decider agent. You need to decide which agent should respond to this message. and in which order. 
 Theses are the available agents: {agents_str}
@@ -154,6 +237,16 @@ Rules:
 """
 
 def make_agent_decider_prompt_flow(chat_history, all_agents):
+    """
+    Create a prompt for the agent decider in flow team chat.
+
+    Args:
+        chat_history (str): The chat history.
+        all_agents (list): A list of all available agents.
+
+    Returns:
+        str: The formatted agent decider prompt.
+    """
     agents_str = str(all_agents)
     return f"""Based on the previous conversation, decide which agent should respond next. 
 Available agents: {agents_str}
